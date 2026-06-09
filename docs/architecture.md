@@ -20,6 +20,21 @@ It is **NOT** "upload PDFs into a vector DB and do semantic search." The client 
 
 ## Data flow
 
+```mermaid
+flowchart TD
+    Q["NL question (EN / HE)"] --> R{"ROUTER<br/>(DeepSeek, structured JSON)<br/>picks source(s) + REPORTS choice"}
+    R -->|structured| SQL["SQL RETRIEVAL<br/>read-only SQLite<br/>(contracts · maintenance ·<br/>payroll · enrollment …)<br/>→ rows + row ids"]
+    R -->|documents| RAG["RAG RETRIEVAL<br/>vector search over PDF chunks<br/>(local multilingual embeddings)<br/>→ top-k chunks + page #"]
+    SQL --> EV["EVIDENCE<br/>rows w/ ids + chunks w/ pages<br/>(no join — composed separately)"]
+    RAG --> EV
+    EV --> GEN["GROUNDED GENERATION<br/>(DeepSeek)<br/>answer only from evidence,<br/>inline citation per claim<br/>[S:row] / [P:page]"]
+    GEN --> VAL{"validateAnswer()<br/>+ per-feature gate<br/>every claim's citation resolves?"}
+    VAL -->|ok| OUT["Routed, cited answer<br/>+ source panel"]
+    VAL -->|reject| OUT2["Rejected: ungrounded /<br/>fabricated citation"]
+```
+
+The same flow as ASCII (for non-Mermaid renderers):
+
 ```
                                   ┌────────────────────────────────────────────┐
    NL question  ─────────────────▶│  ROUTER  (DeepSeek, structured JSON out)    │

@@ -4,7 +4,8 @@ A free-form business question is **routed** to the relevant source(s), answered 
 
 > This is **not** "upload PDFs into a vector DB and do semantic search" (the client rejected that). The differentiators are **query routing**, **hybrid retrieval (RAG + SQL)**, **grounded generation**, and **source attribution**, on an **extensible** architecture.
 
-- **Live demo:** _(filled in on deploy)_
+- **Live demo:** https://contract-retriever-rag.vercel.app
+- **Client deliverable (start here):** [docs/CLIENT-DELIVERABLE.md](docs/CLIENT-DELIVERABLE.md) — the single client-facing doc (pitch + diagram + the three capabilities + data-quality assessment).
 - **Architecture + diagram:** [docs/architecture.md](docs/architecture.md)
 - **Engine internals:** [docs/features/shared-engine/reference.md](docs/features/shared-engine/reference.md)
 

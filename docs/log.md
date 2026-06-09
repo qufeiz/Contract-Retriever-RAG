@@ -6,6 +6,9 @@ Types: incident · decision · feat · fix · reorg.
 
 ---
 
+## [2026-06-09] feat | All 3 domain features shipped + client deliverable assembled
+contract-intelligence (38 expiring/$18.9M/honest-no-penalties/leak-guard), case-file-qa (Page-24 $1,285/corroboration/conflict-surfacing), maintenance-spend-intelligence ($40,597 spend/honest-refusal). Each has its own 04/user-guide/README ledger + golden screenshots + per-feature content-fidelity gate + journey gates (13 total, green vs live). Assembled the single client-facing doc `CLIENT-DELIVERABLE.md` (pitch + Mermaid diagram + 3 capabilities + Data Quality Assessment of all 9 sources). 40 unit tests green.
+
 ## [2026-06-09] incident | Bundled SQLite returned 0 rows on first Vercel deploy
 First prod deploy: every structured query returned empty (RAG/PDF path worked); `validateAnswer()` correctly rejected the ungrounded result. Cause: `better-sqlite3` can't open the traced bundled `.sqlite` on Lambda. Fix: copy bytes to `/tmp` and open from there + build with `journal_mode=DELETE`. Also pinned `ASSISTANT_TODAY=2026-06-09` for a deterministic demo. Sealed: `gotchas/sqlite-on-serverless.md`. META-MISS: tests were green on localhost — the journey suite now also runs against the live URL.
 
