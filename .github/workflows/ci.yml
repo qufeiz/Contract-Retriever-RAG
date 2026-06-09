@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22.12"
 
       # ── REQUIRED doc immune system (these have teeth) ──────────────────
       - name: doc-lint (links, references, journey-spec coverage, ledger)
