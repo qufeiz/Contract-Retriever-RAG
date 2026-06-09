@@ -13,10 +13,13 @@ export default defineConfig({
   timeout: 180_000,
   expect: { timeout: 45_000 },
   fullyParallel: false,
-  // A transient LLM latency / cold-start timeout is a CI-reliability flake, not a
-  // content defect — retry it a bounded number of times so the suite is reliably
-  // green on the public client repo. A real content failure fails all attempts.
-  retries: 2,
+  // retries: 0 ON PURPOSE. The generous 180s timeout above already absorbs the only
+  // real flake here (LLM cold-start/latency), so retries add no benefit — and they
+  // would MASK a real intermittent CONTENT flake (an answer that drops a figure or
+  // citation on one run, then passes on a retry). This suite's whole identity is "a
+  // red stays a real signal" (the marquee non-determinism + the blind-test fix), so
+  // a single deterministic attempt is the correct gate.
+  retries: 0,
   reporter: [["list"]],
   use: {
     baseURL,
