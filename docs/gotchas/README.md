@@ -17,4 +17,6 @@ A fix is documented as *solved* only when it is **tested AND user-confirmed**. E
 - **Link the gotcha ⇄ the enforcement both ways.** The gotcha names where it's now caught (a CI lint, a unit test, a self-check); the check points back to the why (this file). A gotcha with no enforcement link is a flag: should the lesson be *enforced*, not just remembered?
 
 ## Index
-_(none yet — the first real miss adds the first row)_
+| Gotcha | Lesson |
+|---|---|
+| [sqlite-on-serverless.md](sqlite-on-serverless.md) | A bundled `*.sqlite` won't open via `better-sqlite3` on Vercel serverless even though `readFileSync` reaches it — copy the bytes to `/tmp` and open from there; build the DB with `journal_mode=DELETE`. |

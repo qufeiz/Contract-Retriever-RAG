@@ -2,8 +2,9 @@
 // Both return EVIDENCE with stable citation anchors so the grounding layer can
 // cite every fact. No join between the two — composition only.
 import Database from "better-sqlite3";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { cosineSim } from "./embeddings.ts";
 import type { VectorIndex } from "./documents.ts";
 import { TABLES } from "./schema.ts";
@@ -22,7 +23,16 @@ let _vectors: VectorIndex | null = null;
 export function getDb(): Database.Database {
   if (_db) return _db;
   if (!existsSync(SQLITE)) throw new Error("data-index/contracts.sqlite missing — run `npm run build:index`");
-  _db = new Database(SQLITE, { readonly: true, fileMustExist: true });
+  // On serverless (Vercel) the bundled .sqlite is reachable via readFileSync
+  // (it traces like a static asset), but better-sqlite3's read-only file-open of
+  // that traced path fails ("unable to open database file"). Copy the bytes to
+  // the writable /tmp and open from there — robust on Lambda and locally alike.
+  const bytes = readFileSync(SQLITE);
+  const tmpDir = join(tmpdir(), "contract-rag");
+  mkdirSync(tmpDir, { recursive: true });
+  const tmpDb = join(tmpDir, "contracts.sqlite");
+  writeFileSync(tmpDb, bytes);
+  _db = new Database(tmpDb, { readonly: true, fileMustExist: true });
   return _db;
 }
 export function getVectors(): VectorIndex {

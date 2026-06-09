@@ -7,6 +7,7 @@
 | `LLM_API_KEY` | DeepSeek API key (router + generation) | Set in `.env.local` (gitignored) and as a Vercel env var. **Never commit.** |
 | `LLM_BASE_URL` | `https://api.deepseek.com` | Same |
 | `LLM_MODEL` | `deepseek-chat` | Same |
+| `ASSISTANT_TODAY` | Anchors date-relative answers (e.g. "expire in 90 days") to a fixed date so the mock-data demo is deterministic. Set to `2026-06-09`. Omit to use the real current date. | Optional |
 
 All variable **names + placeholders** live in [`../../.env.example`](../../.env.example) (committed). Real values live **only** in `.env.local` (gitignored) and Vercel.
 

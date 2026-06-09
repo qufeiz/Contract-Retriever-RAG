@@ -77,7 +77,9 @@ function loadTable(db: Database.Database, spec: TableSpec, dataDir: string): Loa
 /** Build the full DB in-memory or to a file. Returns the db + a load report. */
 export function buildDatabase(dataDir: string, filePath?: string) {
   const db = new Database(filePath ?? ":memory:");
-  db.pragma("journal_mode = WAL");
+  // DELETE journal (not WAL) so the built .sqlite is a single self-contained file
+  // with no -wal/-shm sidecars — it copies/bundles cleanly to serverless.
+  db.pragma("journal_mode = DELETE");
   const report: LoadReport[] = [];
   for (const spec of TABLES) {
     createTable(db, spec);

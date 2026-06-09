@@ -6,6 +6,9 @@ Types: incident · decision · feat · fix · reorg.
 
 ---
 
+## [2026-06-09] incident | Bundled SQLite returned 0 rows on first Vercel deploy
+First prod deploy: every structured query returned empty (RAG/PDF path worked); `validateAnswer()` correctly rejected the ungrounded result. Cause: `better-sqlite3` can't open the traced bundled `.sqlite` on Lambda. Fix: copy bytes to `/tmp` and open from there + build with `journal_mode=DELETE`. Also pinned `ASSISTANT_TODAY=2026-06-09` for a deterministic demo. Sealed: `gotchas/sqlite-on-serverless.md`. META-MISS: tests were green on localhost — the journey suite now also runs against the live URL.
+
 ## [2026-06-09] decision | Design-approval gate convention recorded
 The user approved the design + golden bar for this build (an AI Business Knowledge Assistant: routed, hybrid SQL+RAG, grounded+cited answers). **Convention for this repo:** no code/migration/test ships before a *written* design is *explicitly* approved — a prior "do it" on one feature never carries to the next. The PM owns the design + the golden bar; an independent Verifier grades; the Engineer never self-certifies.
 
