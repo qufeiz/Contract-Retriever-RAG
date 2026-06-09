@@ -54,7 +54,6 @@ const FACTUAL_SIGNAL_RE =
   /(\$[\d,]+|\b\d+\b|\bexpire|\boverdue|\bcustody|\bsalary|\bcontract|\binvoice|\bpenalt|\bjudg|\bawarded|\btotal\b)/i;
 
 export function validateAnswer(answer: string, evidence: Evidence): ValidationResult {
-  return { ok: false, reasons: ["FORCED: simulated broken citation (removable-handler probe)"], unresolved: [] };
   const reasons: string[] = [];
   const resolvable = resolvableTokenSet(evidence);
   const tokens = extractCitationTokens(answer);
