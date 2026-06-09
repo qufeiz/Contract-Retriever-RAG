@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # ── REQUIRED doc immune system (these have teeth) ──────────────────
+      - name: doc-lint (links, references, journey-spec coverage, ledger)
+        run: npm run doc-lint
+      - name: doc-structure-lint (user-guide how-to skeleton)
+        run: npm run doc-structure-lint
+
+      - name: Install deps
+        run: npm install
+
+      # ── Code gates: real the moment the toolchain points at real targets ─
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (validateAnswer content-fidelity, loader, router contract)
+        run: npm run test
