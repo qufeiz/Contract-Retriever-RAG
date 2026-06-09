@@ -22,6 +22,14 @@ export type IntentSummary = {
   count: number;
   total?: { name: string; value: number };
   note?: string; // extra verified facts (e.g. top-vendor breakdown, a year subtotal)
+  // Structured verified figures (value + the row id that anchors the citation), so a
+  // deterministic, row-cited figures block can be emitted without re-parsing prose.
+  // Every value here is a server-computed aggregate and is added to the evidence's
+  // verified-aggregate set used by the claim-support cross-check. `extraValues` holds
+  // any SECONDARY verified numbers that appear in the label (e.g. a ticket count next
+  // to a dollar figure) so the cross-check accepts them too — every number a figure
+  // line states must be a verified aggregate, not just the primary value.
+  figures?: { label: string; value: number; cite: number; extraValues?: number[] }[];
 };
 
 function fmt(n: number): string {
@@ -83,7 +91,7 @@ export const INTENTS: IntentDef[] = [
     run: (params) => ({
       rows: sqlSelect(
         "contracts",
-        `SELECT id, contract_id, vendor, start_date, end_date, annual_cost
+        `SELECT id, contract_id, vendor, start_date, end_date, end_date_iso, annual_cost
          FROM contracts WHERE vendor LIKE ? AND __malformed = 0
          ORDER BY end_date_iso ASC, vendor ASC, id ASC`,
         [`%${params.vendor ?? ""}%`]
@@ -140,6 +148,40 @@ export const INTENTS: IntentDef[] = [
       ]
         .filter(Boolean)
         .join(" ");
+      // A stable row id to anchor the verified figures (the aggregates are computed
+      // over the cited set; we attach the top retrieved row's token as the drillable
+      // anchor). Falls back to id 0 only if no rows came back (shouldn't happen).
+      const anchor = rows[0]?.id ?? 0;
+      const topVendor = topVendors[0];
+      const figures: NonNullable<IntentSummary["figures"]> = [
+        {
+          label: `total maintenance spend is ${fmt(grand.total ?? 0)} across ${grand.n} tickets`,
+          value: grand.total ?? 0,
+          cite: anchor,
+          extraValues: [grand.n],
+        },
+      ];
+      if (year && yearAgg) {
+        figures.push({
+          label: `spend in ${year} is ${fmt(yearAgg.total ?? 0)} across ${yearAgg.n} tickets`,
+          value: yearAgg.total ?? 0,
+          cite: anchor,
+          extraValues: [yearAgg.n, Number(year)],
+        });
+      }
+      if (topVendor) {
+        figures.push({
+          label: `top vendor by spend is ${topVendor.vendor} at ${fmt(topVendor.spend)} across ${topVendor.tickets} tickets`,
+          value: topVendor.spend,
+          cite: anchor,
+          // Every top-vendor spend AND ticket count is a server-verified aggregate, so
+          // the claim-support cross-check accepts them wherever the model restates the
+          // breakdown (it lists these per vendor, often beside a representative row's
+          // citation). A truly fabricated number is still rejected — it is in none of
+          // these verified figures nor in any cited row.
+          extraValues: topVendors.flatMap((v) => [v.spend, v.tickets]),
+        });
+      }
       return {
         rows,
         summary: {
@@ -147,6 +189,7 @@ export const INTENTS: IntentDef[] = [
           count: grand.n,
           total: { name: "all-time total maintenance spend", value: grand.total ?? 0 },
           note: extra,
+          figures,
         },
       };
     },

@@ -61,12 +61,17 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
     chunks = diversifyByDoc(raw, 8);
   }
 
-  // 3. Build evidence with citation tokens
+  // 3. Build evidence with citation tokens. The evidence carries the underlying
+  // values (row data, page text) AND the verified server-side aggregates so the
+  // claim-support cross-check in validateAnswer can confirm a cited number is
+  // actually backed by what it points at.
   const evRows = rows.map((r) => ({ ...r, token: sqlToken(r.table, r.id) }));
   const evChunks = chunks.map((c) => ({ ...c, token: pdfToken(c.doc, c.page) }));
+  const aggregates = collectAggregates(summaries);
   const evidence: Evidence = {
-    rows: evRows.map((r) => ({ table: r.table, id: r.id })),
-    chunks: evChunks.map((c) => ({ doc: c.doc, page: c.page })),
+    rows: evRows.map((r) => ({ table: r.table, id: r.id, data: r.data })),
+    chunks: evChunks.map((c) => ({ doc: c.doc, page: c.page, text: c.text })),
+    aggregates,
   };
 
   // For the maintenance domain, give generation the table's schema so it can
@@ -75,7 +80,31 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
   const schemaContext = buildSchemaContext(route);
 
   // 4. GROUNDED GENERATION
-  const answer = await generateGrounded(question, evRows, evChunks, summaries, schemaContext, TODAY);
+  let answer = await generateGrounded(question, evRows, evChunks, summaries, schemaContext, TODAY);
+
+  // 4b. DETERMINISTIC maintenance figures block. The marquee trust demo (the
+  // overdue refusal) pivots to real spend figures. We do NOT trust the LLM to
+  // attach the [S:maintenance#id] citation to those server-computed figures, so we
+  // append a verified, row-cited figures block deterministically. Every number here
+  // is a verified aggregate (so it passes the claim-support cross-check) and every
+  // line carries a real retrieved row token (so it passes the citation-resolves and
+  // factual-claim-needs-a-citation rules). The honest "no payment-status field
+  // exists" meta-statement the LLM emits stays uncited; these spend figures do not.
+  if (route.intents.some((i) => i.name === "maintenance_spend") && summaries.length > 0) {
+    const block = buildMaintenanceFiguresBlock(summaries, evRows);
+    if (block) answer = `${answer.trim()}\n\n${block}`;
+  }
+
+  // 4c. DETERMINISTIC contract figures block. A single named-contract question (the
+  // Skalith Example C) must carry that contract's real annual cost + expiry, cited to
+  // its row — never left to the LLM to remember a $25,629.50 it could round or drop.
+  // We append every retrieved contract row's verified value + expiry with its own
+  // [S:contracts#id] token. Every figure here is a literal row value (so the
+  // claim-support cross-check passes) and is row-cited.
+  if (route.intents.some((i) => i.name.startsWith("contracts_")) && evRows.length > 0) {
+    const block = buildContractFiguresBlock(evRows);
+    if (block) answer = `${answer.trim()}\n\n${block}`;
+  }
 
   // 5. VALIDATE — generic content-fidelity + the per-feature gate (contracts).
   const validation = validateAnswer(answer, evidence);
@@ -112,6 +141,66 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
 
 function docLabel(doc: string): string {
   return DOCUMENTS.find((d) => d.doc === doc)?.label ?? doc;
+}
+
+// Every verified server-computed figure (counts, totals, per-figure values) that a
+// row-cited summary line is allowed to state even though no single row holds that
+// value. The claim-support cross-check treats these as ground truth.
+function collectAggregates(summaries: IntentSummary[]): number[] {
+  const out: number[] = [];
+  for (const s of summaries) {
+    out.push(s.count);
+    if (s.total) out.push(s.total.value);
+    for (const f of s.figures ?? []) {
+      out.push(f.value);
+      for (const v of f.extraValues ?? []) out.push(v);
+    }
+  }
+  return out;
+}
+
+// The deterministic, row-cited verified-figures block appended to maintenance
+// answers. Each line states a server-computed aggregate WITH its [S:maintenance#id]
+// anchor, so the figure is always cited (never bare prose) regardless of what the
+// LLM wrote above.
+function buildMaintenanceFiguresBlock(
+  summaries: IntentSummary[],
+  evRows: { token: string; table: string; id: number }[]
+): string {
+  const figures = summaries.flatMap((s) => s.figures ?? []);
+  if (figures.length === 0) return "";
+  const tokenFor = (id: number) => {
+    const r = evRows.find((r) => r.table === "maintenance" && r.id === id);
+    return r ? r.token : sqlToken("maintenance", id);
+  };
+  const lines = figures.map((f) => `- ${f.label} ${tokenFor(f.cite)}.`);
+  return ["Verified figures (computed over the cited maintenance rows):", ...lines].join("\n");
+}
+
+// A per-contract verified-value block for a SPECIFIC named-contract question. Only
+// emitted for a small, focused result set (a named-vendor drill like Skalith) — not
+// for the 38-contract expiry SET, where the LLM already states the verified count +
+// combined total and a per-row dump would be noise. Each line carries the row's real
+// annual cost + expiry and its own [S:contracts#id] token (literal row values, so
+// the claim-support cross-check passes).
+const CONTRACT_BLOCK_MAX_ROWS = 6;
+function buildContractFiguresBlock(
+  evRows: { token: string; table: string; id: number; data: Record<string, unknown> }[]
+): string {
+  const rows = evRows.filter((r) => r.table === "contracts");
+  if (rows.length === 0 || rows.length > CONTRACT_BLOCK_MAX_ROWS) return "";
+  const fmtUsd = (v: unknown) =>
+    typeof v === "number"
+      ? v.toLocaleString("en-US", { style: "currency", currency: "USD" })
+      : String(v ?? "");
+  const lines = rows.map((r) => {
+    const d = r.data;
+    const role = d.contract_id ?? "contract";
+    const cost = fmtUsd(d.annual_cost);
+    const expiry = d.end_date_iso ?? d.end_date ?? "unknown";
+    return `- ${d.vendor} (${role}): annual cost ${cost}, expires ${expiry} ${r.token}.`;
+  });
+  return ["Verified contract figures (from the cited rows):", ...lines].join("\n");
 }
 
 // Schema evidence for the honest-refusal path. When a maintenance question asks
@@ -196,7 +285,8 @@ async function generateGrounded(
 - If the evidence does not contain the answer (e.g. penalty terms are not in the data), say so plainly: write "not available" / "are not available in the data" (for documents: "not stated in the case file"). Do NOT fabricate, and do NOT pull from an unrelated source.
 - CORROBORATION: if the SAME fact appears in TWO different documents (e.g. both the court file AND the narrative), cite BOTH (keep the two citations distinct) and say it is corroborated across the documents — stronger attribution. Actively check whether a second document also supports the fact before answering from just one.
 - CONFLICT (critical): before answering a question about a specific value (a date, an amount, a name), you MUST scan EVERY evidence passage and collect EVERY value it gives for that thing — including values inside headers/cover sheets (e.g. a cover sheet line "Filed: 10 February 2026" is a filing date even though it's terse). If you find two DIFFERENT values for the same thing (e.g. "10 February 2026" on a cover sheet vs "February 3, 2026" in a narrative — note these are DIFFERENT dates), you MUST surface BOTH with their own citations and state the sources conflict. Two dates are "the same" only if they are literally the same day. NEVER call conflicting values "corroborated", and never silently pick one — hiding a conflict is a failure.
-- Be concise and concrete. When stating a count or total, use the VERIFIED AGGREGATES exactly, then list a few representative rows each with its own token.`;
+- Be concise and concrete. When stating a count or total, use the VERIFIED AGGREGATES exactly, then list a few representative rows each with its own token.
+- DATA DEFECT (contracts): the contracts table's "contract_id" column actually holds a ROLE / JOB TITLE (e.g. "Project Manager", "Data Coordinator"), NOT a contract identifier. NEVER label it "Contract ID" or "Contract number". Call it the role or job title (e.g. "role: Project Manager"). The real identifier for a contract row is its citation token (e.g. [S:contracts#269]).`;
 
   const user = `Today's date is ${today}. Any date filtering in the structured evidence (e.g. "next 90 days") was already computed relative to today, so the rows below are the answer set — do not say the date is unknown.
 

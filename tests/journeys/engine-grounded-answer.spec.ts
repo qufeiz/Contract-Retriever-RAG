@@ -33,7 +33,8 @@ test("structured route: contracts expiring is answered from SQL with resolvable 
   await expect(sources).toContainText(/\[S:contracts#\d+\]/);
 
   // The content-fidelity gate passed.
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("document route: the Carter custody/support finding is answered from the PDF, page-cited", async ({
@@ -48,7 +49,8 @@ test("document route: the Carter custody/support finding is answered from the PD
   await expect(answer).toContainText(/1,285/);
   await expect(answer).toContainText(/\[P:family-court#\d+\]/);
 
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("honest composition: penalties absent from the data are NOT fabricated", async ({ page }) => {
@@ -62,5 +64,6 @@ test("honest composition: penalties absent from the data are NOT fabricated", as
   await expect(answer).toContainText(/\[S:contracts#\d+\]/);
   await expect(answer).toContainText(/not present|not (defined|available|specified)|no penalt/i);
 
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });

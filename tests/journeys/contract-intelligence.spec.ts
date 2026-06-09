@@ -36,7 +36,8 @@ test("F-A: spec Q1 (EN) → 38 count, $18.9M total, cited row, honest penalty, N
   await expect(answer).not.toContainText(CARTER_LEAK);
 
   // Content-fidelity (generic + validateContractAnswer) passed.
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-B: spec Q1 in Hebrew → same 38 / $18.9M / honest penalty, NO Carter leak", async ({
@@ -49,7 +50,8 @@ test("F-B: spec Q1 in Hebrew → same 38 / $18.9M / honest penalty, NO Carter le
   await expect(answer).toContainText(/38/);
   await expect(answer).toContainText(/18,924,883\.79/);
   await expect(answer).not.toContainText(CARTER_LEAK);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-C: single Skalith contract → real value cited, honest no-penalty, NO Carter leak", async ({
@@ -61,8 +63,10 @@ test("F-C: single Skalith contract → real value cited, honest no-penalty, NO C
   );
 
   const answer = page.getByTestId("answer");
-  await expect(answer).toContainText(/\[S:contracts#\d+\]/);
+  await expect(answer).toContainText(/\[S:contracts#269\]/); // the Skalith Project Manager row
+  await expect(answer).toContainText(/25,629\.50/); // its real annual cost, cited to the row
   await expect(answer).toContainText(/not available|not contain|no penalty|no early-termination/i);
   await expect(answer).not.toContainText(CARTER_LEAK);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });

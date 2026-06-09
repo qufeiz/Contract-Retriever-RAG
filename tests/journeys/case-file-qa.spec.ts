@@ -22,7 +22,8 @@ test("F-A: Final Judgment (EN) → $1,285 + Joni Carter primary residence, Page-
   await expect(answer).toContainText(/Joni Carter/i);
   // Cited to the court file's printed Page 24 (the Final Judgment).
   await expect(answer).toContainText(/\[P:family-court#24\]/);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-B: grounds question → corroborated across BOTH documents (two distinct cites)", async ({
@@ -33,7 +34,8 @@ test("F-B: grounds question → corroborated across BOTH documents (two distinct
   const answer = page.getByTestId("answer");
   await expect(answer).toContainText(/\[P:family-court#\d+\]/);
   await expect(answer).toContainText(/\[P:carter-story#\d+\]/); // the second document
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-C: filing-date question → surfaces BOTH Feb 10 and Feb 3 as a conflict", async ({ page }) => {
@@ -43,7 +45,8 @@ test("F-C: filing-date question → surfaces BOTH Feb 10 and Feb 3 as a conflict
   await expect(answer).toContainText(/(10 February|February 10)/i);
   await expect(answer).toContainText(/February 3/i);
   await expect(answer).toContainText(/conflict|disagree|differ/i);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-D: Final Judgment in Hebrew → same $1,285 + Page-24 citation", async ({ page }) => {
@@ -52,5 +55,6 @@ test("F-D: Final Judgment in Hebrew → same $1,285 + Page-24 citation", async (
   const answer = page.getByTestId("answer");
   await expect(answer).toContainText(/1,285/);
   await expect(answer).toContainText(/\[P:family-court#24\]/);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });

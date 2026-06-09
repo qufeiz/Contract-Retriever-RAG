@@ -31,7 +31,8 @@ test("F-A: overdue question → HONEST REFUSAL, schema-cited, NO fabricated over
   // NEVER a fabricated overdue list.
   await expect(answer).not.toContainText(FABRICATED_OVERDUE);
   await expect(answer).not.toContainText(/child support|custody/i); // and no Carter leak
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-B: spend question → $40,597 total, 2026 $13,485.66/248, top vendor cited", async ({ page }) => {
@@ -43,7 +44,8 @@ test("F-B: spend question → $40,597 total, 2026 $13,485.66/248, top vendor cit
   await expect(answer).toContainText(/40,597/);
   await expect(answer).toContainText(/Oyoba/);
   await expect(answer).toContainText(/\[S:maintenance#\d+\]/); // drillable row citation
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
 
 test("F-C: overdue question in Hebrew → same honest refusal, $40,597, no fabrication", async ({
@@ -54,5 +56,6 @@ test("F-C: overdue question in Hebrew → same honest refusal, $40,597, no fabri
   const answer = page.getByTestId("answer");
   await expect(answer).toContainText(/40,597/);
   await expect(answer).not.toContainText(FABRICATED_OVERDUE);
-  await expect(page.getByTestId("validation")).toContainText(/Grounded/i);
+  await expect(page.getByTestId("validation")).toContainText(/✓\s*Grounded/);
+  await expect(page.getByTestId("validation")).not.toContainText(/Rejected|ungrounded/i);
 });
