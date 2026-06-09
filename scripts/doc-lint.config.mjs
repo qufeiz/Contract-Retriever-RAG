@@ -21,11 +21,13 @@ export default {
   // Each feature folder's README.md is a ledger. doc-lint fails the build if a
   // shipped screenshot (images/*.png) isn't in the ledger, or a feature gate
   // (a *<feature>*.spec.ts) isn't listed.
-  // requireFeatureLedger stays FALSE until the first feature folder exists
-  // (bootstrap §A Step 5: don't arm a ledger lint with no ledger to point at).
+  // Armed now that the first real feature (contract-intelligence) ships a ledger +
+  // golden screenshots (bootstrap §A Step 5). A feature folder with no captured
+  // screenshots yet (still being authored) is not held to the ledger; the moment it
+  // ships a screenshot, a ledgered README is required.
   // The shared-engine folder is INFRASTRUCTURE, not a user-facing feature with a
-  // capability/screenshot ledger — it is exempt from the ledger requirement.
-  requireFeatureLedger: false,
+  // capability/screenshot ledger — it is exempt.
+  requireFeatureLedger: true,
   featuresDir: "docs/features",
   ledgerExemptFeatures: ["shared-engine"], // infrastructure ref doc, not a capability ledger
 };

@@ -81,18 +81,24 @@ if (config.requireFeatureLedger) {
       if (config.ledgerExemptFeatures.includes(feat)) continue;
       const featDir = join(featuresDir, feat);
       if (!statSync(featDir).isDirectory()) continue;
+      const imagesDir = join(featDir, "images");
+      const shots = existsSync(imagesDir)
+        ? readdirSync(imagesDir).filter((n) => n.endsWith(".png"))
+        : [];
+      // A feature folder still being authored (no captured screenshots yet) isn't
+      // held to the ledger. Once it SHIPS a screenshot, the README ledger is required
+      // and every shot must be ledgered. (Bootstrap §A: arm a check only once there's
+      // something for it to point at.)
+      if (shots.length === 0) continue;
       const readmePath = join(featDir, "README.md");
       if (!existsSync(readmePath)) {
-        bad.push(`${config.featuresDir}/${feat}  missing README.md ledger`);
+        bad.push(`${config.featuresDir}/${feat}  ships ${shots.length} screenshot(s) but has no README.md ledger`);
         continue;
       }
       const ledger = readFileSync(readmePath, "utf8");
-      const imagesDir = join(featDir, "images");
-      if (existsSync(imagesDir)) {
-        for (const img of readdirSync(imagesDir).filter((n) => n.endsWith(".png"))) {
-          if (!ledger.includes(img)) {
-            bad.push(`${config.featuresDir}/${feat}/README.md  screenshot not in ledger → images/${img}`);
-          }
+      for (const img of shots) {
+        if (!ledger.includes(img)) {
+          bad.push(`${config.featuresDir}/${feat}/README.md  screenshot not in ledger → images/${img}`);
         }
       }
     }
