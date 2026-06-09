@@ -59,7 +59,7 @@ export async function routeQuestion(question: string): Promise<RoutePlan> {
 
 export function normalizePlan(parsed: any): RoutePlan {
   const validIntents = new Set(INTENTS.map((i) => i.name));
-  const sources = Array.isArray(parsed.sources)
+  let sources: string[] = Array.isArray(parsed.sources)
     ? parsed.sources.filter((s: string) => s === "structured" || s === "documents")
     : [];
   const intents = Array.isArray(parsed.intents)
@@ -69,10 +69,34 @@ export function normalizePlan(parsed: any): RoutePlan {
     : [];
   // Coherence: if structured intents were chosen, ensure "structured" is in sources.
   if (intents.length && !sources.includes("structured")) sources.push("structured");
+
+  // CROSS-DOMAIN-LEAK GUARD (contract-intelligence J1/G2): the contract data has
+  // no companion documents in this corpus — the only PDFs are the unrelated Carter
+  // case file. A contract question must NEVER retrieve documents, so a penalty/
+  // termination ask can't be "answered" with divorce-case text. If a contract
+  // intent was selected, force SQL-only — there is no Carter chunk in evidence to
+  // leak. This is the strongest form of the leak gate (prevent, don't post-filter).
+  const isContractTurn = intents.some((i: { name: string }) => i.name.startsWith("contracts_"));
+  let leakGuarded = false;
+  if (isContractTurn && sources.includes("documents")) {
+    sources = sources.filter((s: string) => s !== "documents");
+    leakGuarded = true;
+  }
+
+  const rationale =
+    (typeof parsed.rationale === "string" ? parsed.rationale : "") +
+    (leakGuarded
+      ? " (contract questions are answered from structured data only; no contract documents exist in this corpus, so penalty terms are reported as unavailable rather than sourced from an unrelated document)"
+      : "");
+
+  const finalSources = (sources.length ? sources : ["structured", "documents"]) as (
+    | "structured"
+    | "documents"
+  )[];
   return {
-    sources: sources.length ? sources : ["structured", "documents"],
+    sources: finalSources,
     intents,
-    docFilter: typeof parsed.docFilter === "string" ? parsed.docFilter : null,
-    rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
+    docFilter: typeof parsed.docFilter === "string" && !isContractTurn ? parsed.docFilter : null,
+    rationale,
   };
 }

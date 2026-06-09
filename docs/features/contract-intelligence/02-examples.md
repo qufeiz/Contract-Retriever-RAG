@@ -4,6 +4,8 @@ Derived from: 01-design.md §workflow (steps 1–5, the single golden scenario: 
 
 > **This is the acceptance bar.** Every example here is built from **real rows in `data/school data 1.csv`** at the pinned anchor date **2026-06-09**. Because the corpus contains **no vendor-contract documents and no penalty column**, the golden answer to the penalty half is an **honest "not available"** — never a fabricated clause, never text pulled from the unrelated Carter case file. The toy-vs-real contrast defines the line; `validateContractAnswer()` + the cross-domain-leak gate in `03` must pass every golden answer and fail every toy/leaking answer.
 
+> **Citation format.** The examples below write citations in a readable prose form (*[source: `contracts` table, row …]*); the **engine renders them as inline tokens `[S:contracts#<id>]`** (structured rows) and `[P:<doc>#<page>]` (document pages). These are the same citation — the prose form is for the acceptance bar's readability; the **engine's golden answer and screenshots use the `[S:…]` token form**, and `03`'s gates assert the token resolves to a real row. Contract answers use **only `[S:contracts#…]`** tokens (no `[P:…]` document tokens — penalties have no document source).
+
 ---
 
 ## Golden Example A — the spec's headline question (EN)

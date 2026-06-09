@@ -4,6 +4,8 @@ Derived from: 01-design.md §workflow (the single golden scenario: the honest re
 
 > **The acceptance bar.** The headline example here is the **honest refusal** — the single clearest demonstration of the trust property the client is paying for — paired with a **real, cited spend answer** so the feature is shown *working*, not just refusing. `validateNoFabrication()` in `03` must pass these and fail any answer that invents an overdue status.
 
+> **Citation format.** The examples below write citations in readable prose (*[source: `maintenance` table …]*); the **engine renders them as inline `[S:maintenance#<id>]` tokens** (structured rows), and a spend total cites the set of row tokens that compose it. Same citation, two forms: prose for readability, the `[S:…]` token in the engine's golden answer + screenshots, with `03` asserting the token resolves to a real row. The honest-refusal answers cite the **schema** (the column set) as evidence of absence — they carry **no** row token for the missing "overdue" concept, because no such row exists.
+
 ---
 
 ## Golden Example A — the literal spec Q2: HONEST REFUSAL (the trust demo, EN)

@@ -6,6 +6,8 @@ Derived from: 01-design.md §workflow (the single golden scenario: Final Judgmen
 
 > **Exact filenames (cite these in full):** the court case file is **`📄 FAMILY COURT CASE FILE (MOCK) – FINAL VERSION.pdf`** (the "Court Case File" below) — the ONLY document containing the Final Judgment (Page 24). The narrative is **`story if the Carters .pdf`** (the "case story"/"narrative" below). The Final Judgment must **never** be cited to the story PDF — it isn't in it.
 
+> **Citation format.** The examples below write citations in readable prose (*[source: …, Page 24]*); the **engine renders them as inline `[P:<doc>#<page>]` tokens** (document pages) — e.g. the Final Judgment is `[P:family-court#24]` (the engine's short doc-id for the case file). Same citation, two forms: prose for readability here, the `[P:…]` token in the engine's golden answer + screenshots, with `03`'s gates asserting the token resolves to the real document page. This is a **document-only** feature — answers use `[P:…]` tokens, never `[S:…]` table tokens.
+
 ---
 
 ## Golden Example A — the Final Judgment (the headline, EN)

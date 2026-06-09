@@ -22,5 +22,6 @@ The test discipline for this repo. The core rule: **a passing test must mean the
 | Spec | Proves |
 |---|---|
 | `engine-grounded-answer.spec.ts` | The shared-engine pipeline end-to-end: structured-route (contracts expiring → SQL, `[S:contracts#id]` citations), document-route (Carter custody/support → PDF, `[P:family-court#page]`, the $1,285 golden), and honest composition (penalties absent → not fabricated). Each asserts the routed source badge, resolvable citation tokens, real evidence rows, and the `validateAnswer()` "Grounded" pass — removable-handler-proof. |
+| `contract-intelligence.spec.ts` | The contract-intelligence feature (pinned `asOfDate=2026-06-09`): F-A spec Q1 EN (38 count, $18,924,883.79 total, cited row, honest penalty, SQL-only, **no Carter leak**), F-B the same in Hebrew, F-C the single Skalith contract. Asserts the cross-domain-leak guard (J1) and the `validateContractAnswer()` "Grounded" pass. |
 
 > doc-lint fails the build if a `tests/journeys/*.spec.ts` exists but isn't listed here, or vice-versa.
