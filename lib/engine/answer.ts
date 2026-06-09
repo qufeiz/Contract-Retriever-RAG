@@ -9,6 +9,7 @@ import { chat } from "./llm.ts";
 import { sqlToken, pdfToken } from "./citations.ts";
 import { validateAnswer, type Evidence } from "./validate-answer.ts";
 import { validateContractAnswer } from "./validate-contract-answer.ts";
+import { validateCaseAnswer } from "./validate-case-answer.ts";
 import { DOCUMENTS } from "./documents.ts";
 
 export type AnswerResult = {
@@ -50,7 +51,13 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
   let chunks: DocChunk[] = [];
   if (route.sources.includes("documents")) {
     const qEmbedding = await embedQuery(question);
-    chunks = vectorSearch(qEmbedding, 6, route.docFilter ?? undefined);
+    // Retrieve across ALL case documents (NO doc filter) then ensure cross-document
+    // coverage, so corroboration and conflict-surfacing across BOTH Carter PDFs are
+    // possible — locking to a single doc would defeat both. The router's docFilter is
+    // intentionally not applied here: the two case documents are companions and the
+    // feature's value (corroboration / conflict) depends on seeing both.
+    const raw = vectorSearch(qEmbedding, 12);
+    chunks = diversifyByDoc(raw, 8);
   }
 
   // 3. Build evidence with citation tokens
@@ -72,6 +79,13 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
     const cv = validateContractAnswer(answer);
     reasons.push(...cv.reasons);
   }
+  // A case-file turn: documents only, no structured intents (the Carter case Q&A).
+  const isCaseTurn =
+    route.sources.includes("documents") && !route.sources.includes("structured") && evChunks.length > 0;
+  if (isCaseTurn) {
+    const cv = validateCaseAnswer(answer);
+    reasons.push(...cv.reasons);
+  }
 
   return {
     question,
@@ -87,6 +101,27 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
 
 function docLabel(doc: string): string {
   return DOCUMENTS.find((d) => d.doc === doc)?.label ?? doc;
+}
+
+// Keep the top chunks but guarantee each represented document gets at least a
+// couple of slots, so a corroborating/conflicting passage in a lower-ranked doc
+// isn't crowded out by a higher-ranked one. Preserves overall score order.
+function diversifyByDoc(chunks: DocChunk[], limit: number): DocChunk[] {
+  const perDocFloor = 2;
+  const byDoc = new Map<string, DocChunk[]>();
+  for (const c of chunks) {
+    if (!byDoc.has(c.doc)) byDoc.set(c.doc, []);
+    byDoc.get(c.doc)!.push(c);
+  }
+  const picked = new Set<DocChunk>();
+  // First pass: each doc's top `perDocFloor`.
+  for (const list of byDoc.values()) for (const c of list.slice(0, perDocFloor)) picked.add(c);
+  // Then fill remaining slots in global score order.
+  for (const c of chunks) {
+    if (picked.size >= limit) break;
+    picked.add(c);
+  }
+  return chunks.filter((c) => picked.has(c)).slice(0, limit);
 }
 
 async function generateGrounded(
@@ -130,7 +165,9 @@ async function generateGrounded(
 - Use ONLY tokens that appear in the evidence below. Never invent a citation.
 - ALWAYS include citation tokens, in EVERY language — if you answer in Hebrew or another language, the [S:...]/[P:...] tokens still appear verbatim (they are not translated).
 - The structured and document sources are unrelated; do not merge or join them.
-- If the evidence does not contain the answer (e.g. penalty terms are not in the data), say so plainly: write "not available" / "are not available in the data". Do NOT fabricate, and do NOT pull from an unrelated source.
+- If the evidence does not contain the answer (e.g. penalty terms are not in the data), say so plainly: write "not available" / "are not available in the data" (for documents: "not stated in the case file"). Do NOT fabricate, and do NOT pull from an unrelated source.
+- CORROBORATION: if the SAME fact appears in TWO different documents (e.g. both the court file AND the narrative), cite BOTH (keep the two citations distinct) and say it is corroborated across the documents — stronger attribution. Actively check whether a second document also supports the fact before answering from just one.
+- CONFLICT (critical): before answering a question about a specific value (a date, an amount, a name), you MUST scan EVERY evidence passage and collect EVERY value it gives for that thing — including values inside headers/cover sheets (e.g. a cover sheet line "Filed: 10 February 2026" is a filing date even though it's terse). If you find two DIFFERENT values for the same thing (e.g. "10 February 2026" on a cover sheet vs "February 3, 2026" in a narrative — note these are DIFFERENT dates), you MUST surface BOTH with their own citations and state the sources conflict. Two dates are "the same" only if they are literally the same day. NEVER call conflicting values "corroborated", and never silently pick one — hiding a conflict is a failure.
 - Be concise and concrete. When stating a count or total, use the VERIFIED AGGREGATES exactly, then list a few representative rows each with its own token.`;
 
   const user = `Today's date is ${today}. Any date filtering in the structured evidence (e.g. "next 90 days") was already computed relative to today, so the rows below are the answer set — do not say the date is unknown.

@@ -50,12 +50,46 @@ function chunkPage(text: string, chunkChars = 900, overlap = 150): string[] {
   return chunks;
 }
 
+// Some documents print their OWN pagination as "PAGE N – SECTION" headers (the
+// Carter court file does: "PAGE 24 – FINAL JUDGMENT"). For those we cite the
+// document's printed page number — the number a human verifies against the real
+// PDF — NOT the physical pdftotext page. This re-segments the extracted text on
+// those printed markers so a chunk's `page` is the document's own page (24), and
+// the citation [P:family-court#24] resolves to the page the reader can open.
+const PRINTED_PAGE_RE = /\bPAGE\s+(\d+)\b/gi;
+
+function splitByPrintedPages(allText: string): { page: number; text: string }[] | null {
+  const matches = [...allText.matchAll(PRINTED_PAGE_RE)];
+  if (matches.length < 3) return null; // not a printed-paginated doc
+  const segments: { page: number; text: string }[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const page = parseInt(matches[i][1], 10);
+    const start = matches[i].index ?? 0;
+    const end = i + 1 < matches.length ? (matches[i + 1].index ?? allText.length) : allText.length;
+    const text = allText.slice(start, end).trim();
+    if (text) segments.push({ page, text });
+  }
+  return segments;
+}
+
 /** Turn a PDF into citable chunks (doc + page + text). Prefers committed page
  *  text (data/pdf-pages.json) so a poppler-less build still works; falls back to
- *  pdftotext when the cache is absent. */
+ *  pdftotext when the cache is absent. Documents with printed pagination are cited
+ *  to their OWN page numbers (see splitByPrintedPages). */
 export function pdfToChunks(pdfPath: string, doc: string): PdfChunk[] {
   const pages = cachedPages(doc) ?? extractPages(pdfPath);
   const chunks: PdfChunk[] = [];
+
+  const printed = splitByPrintedPages(pages.join("\n"));
+  if (printed) {
+    for (const seg of printed) {
+      for (const text of chunkPage(seg.text)) chunks.push({ doc, page: seg.page, text });
+    }
+    return chunks;
+  }
+
+  // Fallback: cite by physical page (e.g. the narrative story, which has no
+  // printed pagination).
   pages.forEach((pageText, idx) => {
     const page = idx + 1;
     for (const text of chunkPage(pageText)) chunks.push({ doc, page, text });
