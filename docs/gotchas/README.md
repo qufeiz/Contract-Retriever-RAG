@@ -20,3 +20,4 @@ A fix is documented as *solved* only when it is **tested AND user-confirmed**. E
 | Gotcha | Lesson |
 |---|---|
 | [sqlite-on-serverless.md](sqlite-on-serverless.md) | A bundled `*.sqlite` won't open via `better-sqlite3` on Vercel serverless even though `readFileSync` reaches it — copy the bytes to `/tmp` and open from there; build the DB with `journal_mode=DELETE`. |
+| [committed-debug-stub-broke-prod.md](committed-debug-stub-broke-prod.md) | A removable-handler probe (`FORCED:` always-fail) got committed + deployed and forced every answer to "Rejected". Never commit a probe; verify the journey suite GREEN against the FRESH prod URL, not a stale `.next`. Now blocked by a `doc-lint` forbidden-marker scan. |

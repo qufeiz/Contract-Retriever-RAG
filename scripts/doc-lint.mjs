@@ -105,8 +105,49 @@ if (config.requireFeatureLedger) {
   }
 }
 
+// ── Check 5: forbidden source markers (anti debug-stub) ─────────────────────
+// A committed removable-handler probe once forced every answer to "Rejected" in
+// prod (docs/gotchas/committed-debug-stub-broke-prod.md). Fail if a marker reaches
+// tracked source.
+if (Array.isArray(config.forbiddenSourceMarkers) && config.forbiddenSourceMarkers.length) {
+  const sourceFiles = (config.sourceDirs ?? []).flatMap((d) => {
+    const p = join(ROOT, d);
+    return existsSync(p) ? walkSource(p) : [];
+  });
+  // The lint engine + its config NAME the markers (to describe/detect them) — don't
+  // flag the detector itself.
+  const selfPaths = new Set([
+    rel(join(ROOT, "scripts", "doc-lint.config.mjs")),
+    rel(join(ROOT, "scripts", "doc-lint.mjs")),
+  ]);
+  for (const f of sourceFiles) {
+    const r = rel(f);
+    if (selfPaths.has(r)) continue;
+    const text = readFileSync(f, "utf8");
+    for (const marker of config.forbiddenSourceMarkers) {
+      if (text.includes(marker)) {
+        bad.push(`${r}  forbidden debug-stub marker → "${marker}" (revert the probe before committing)`);
+      }
+    }
+  }
+}
+
 if (bad.length) {
   console.error("✗ doc-lint:\n" + bad.map((b) => "  " + b).join("\n"));
   process.exit(1);
 }
-console.log("✓ doc-lint: links, references, journey-spec coverage, and ledger OK");
+console.log("✓ doc-lint: links, references, journey-spec coverage, ledger, and source markers OK");
+
+// Walk a source dir for .ts/.tsx/.mts/.mjs/.js files (excludes the same dirs).
+function walkSource(d, acc = []) {
+  let entries;
+  try { entries = readdirSync(d); } catch { return acc; }
+  for (const n of entries) {
+    const p = join(d, n);
+    const r = rel(p);
+    if (config.excludeDirs.some((x) => r === x || r.startsWith(x + "/"))) continue;
+    if (statSync(p).isDirectory()) walkSource(p, acc);
+    else if (/\.(ts|tsx|mts|mjs|js)$/.test(n)) acc.push(p);
+  }
+  return acc;
+}

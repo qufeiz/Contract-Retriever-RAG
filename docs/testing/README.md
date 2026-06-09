@@ -11,6 +11,8 @@ The test discipline for this repo. The core rule: **a passing test must mean the
 
 **Run the journey suite against the LIVE deploy, not just localhost.** Set `JOURNEY_BASE_URL=https://contract-retriever-rag.vercel.app` so the **prod serverless function** is asserted (the structured route uses a bundled SQLite that behaves differently on Lambda — a green-on-localhost / broken-in-prod miss already happened: `../gotchas/sqlite-on-serverless.md`). The final pass runs both localhost and the deployed URL.
 
+**The "done" bar after a release (non-negotiable):** a build is done only when the journey suite is GREEN against the **freshly-deployed production URL** — run it *after* `vercel --prod`, not against localhost and not against a possibly-stale `.next` (`rm -rf .next` before a release build if unsure). A debug stub once passed locally on a stale bundle and broke every answer in prod: `../gotchas/committed-debug-stub-broke-prod.md`.
+
 ## Journey-test discipline (non-negotiable)
 - **Assert the visible outcome**, not feedback. "The answer text contains the 38 expiring contracts and each cites a `[S:contracts#id]`" — not "a response div appeared".
 - **Feedback ≠ outcome.** A spinner stopping or a box filling proves the request fired, not that the answer is grounded. Assert the citation tokens resolve and the claimed facts are present.

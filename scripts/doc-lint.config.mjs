@@ -30,4 +30,19 @@ export default {
   requireFeatureLedger: true,
   featuresDir: "docs/features",
   ledgerExemptFeatures: ["shared-engine"], // infrastructure ref doc, not a capability ledger
+
+  // ── Forbidden source markers (anti debug-stub) ──────────────────────────
+  // A removable-handler probe (flipping a gate to "always fail" to prove it bites)
+  // is a LOCAL experiment that must be reverted before staging. One got committed +
+  // deployed once and forced every answer to "Rejected" in prod
+  // (docs/gotchas/committed-debug-stub-broke-prod.md). This scans tracked source for
+  // those markers and fails the build, so a debug stub can't be merged.
+  sourceDirs: ["lib", "app", "scripts"],
+  forbiddenSourceMarkers: [
+    "FORCED:",
+    "SIMULATED:",
+    "simulated broken",
+    "removable-handler probe",
+    "// FORCE FAIL",
+  ],
 };
