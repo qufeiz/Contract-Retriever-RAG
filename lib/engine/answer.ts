@@ -35,8 +35,10 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
       if (!def) continue;
       try {
         rows.push(...def.run(intent.params, TODAY));
-      } catch {
-        /* a bad intent never crashes the answer */
+      } catch (e) {
+        // A bad intent never crashes the answer, but surface it in logs so a
+        // misconfigured retrieval (e.g. a missing bundled index) is debuggable.
+        console.error(`intent ${intent.name} failed:`, e instanceof Error ? e.message : e);
       }
     }
   }
