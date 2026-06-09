@@ -6,6 +6,8 @@ The load-on-demand home for everything that doesn't belong in the always-loaded 
 | Doc | What it is |
 |---|---|
 | [CLIENT-DELIVERABLE.md](CLIENT-DELIVERABLE.md) | **The single client-facing document** — pitch, architecture diagram, the three capabilities with golden screenshots, the data-quality assessment, extensibility. Send this. |
+| [product/data-quality-assessment.md](product/data-quality-assessment.md) | The canonical row-level evaluation of all 9 sources (usable vs dropped + the exact defect each). The client-facing selling point; the deliverable summarizes it. |
+| [product/feature-map.md](product/feature-map.md) | The authoritative list of which features the usable sources support, and which are deferred + why. |
 | [architecture.md](architecture.md) | The shape of the system: stack → data flow → routing → retrieval → grounding/citation → data model → Hebrew seam → honest rough edges. **Start here.** |
 | [log.md](log.md) | Append-only decisions & incidents, newest first. The "why is it like this" trail. |
 | [ops/environment.md](ops/environment.md) | Env vars, secrets hygiene, local run, deploy. |

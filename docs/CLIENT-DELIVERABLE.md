@@ -97,21 +97,25 @@ These behaviors are enforced as **red automated tests** (per-feature content-fid
 
 ## Data Quality Assessment
 
-A frank evaluation of all source files — usable vs. not, and the exact defect — because a client wary of naive RAG deserves to see the data handled honestly. **Malformed rows are quarantined and flagged, never dropped silently or "fixed".**
+> **This is a selling point, not a footnote.** Your stated fear is naive work — "someone who simply uploads PDFs into a vector database and performs semantic search." The antidote is **source-vetting judgment**: knowing what your data can and cannot honestly answer *before* building. We inspected **all 9 provided sources at the row level**, built features only where a source can ground a real, cited answer, and **deliberately dropped the five that can't** — naming the exact defect for each.
 
-| Source file | Loaded as | Usable? | Notes / defects |
+**4 of 9 sources support real, grounded features. 5 were vetted and dropped — for specific, named defects, not for time.**
+
+| # | Source | Verdict | The defect that decides it |
 |---|---|---|---|
-| `school data 1.csv` | `contracts` (1,000 rows) | ✅ Yes — powers Contract Intelligence | Clean cost/date data. **285 rows have End&lt;Start dates** (a real anomaly) — preserved, not corrected, and can be flagged. **No penalty/terms column** → penalty questions answered "not available". |
-| `school data 3.csv` | `maintenance` (750 rows) | ✅ Yes — powers Maintenance Spend | Clean. **No payment-status/due-date/suspension field** → overdue/suspension questions honestly refused. Vendors are providers paid, not debtors. |
-| `school data 5.csv` | `invoice_volume` (788 rows) | ⚠️ Partial | Invoice-volume-per-student aggregates; usable for volume context, not AR. |
-| `school data 6.csv` | `payroll_v2` (720 rows) | ⚠️ Available | Payroll (employee, dept, salary, net pay). Loaded; not yet surfaced as its own feature. |
-| `school data 4.csv` | `payroll_v1` (235 rows) | ⚠️ Available, partly defective | **235 rows have `error: undefined method …` in the pay-method/deduction columns** — those cells are quarantined; the clean columns remain usable. |
-| `school data 2.csv` | `enrollment` (1,000 rows) | ⚠️ Defective | The **`term_name` column is entirely malformed** (`error: undefined method …` in all 1,000 rows) and the `status` column holds gender values — quarantined per-cell; the rest is loadable. |
-| `school data .csv` | `people` (1,000 rows) | ✅ Yes | Directory (names, emails). Usable as reference data. |
-| `📄 FAMILY COURT CASE FILE (MOCK) … .pdf` | `family-court` (RAG) | ✅ Yes — powers Case File Q&A | 15 printed sections incl. the Page-24 Final Judgment. |
-| `story if the Carters .pdf` | `carter-story` (RAG) | ✅ Yes — corroborating narrative | Background story; used to corroborate the court file. |
+| 1 | `school data 1.csv` — contracts | ✅ **Built on** | Clean costs/dates → Contract Intelligence. (`Contract ID` actually holds job titles; some End&lt;Start; no penalty column — handled honestly.) |
+| 2 | `school data 3.csv` — maintenance | ✅ **Built on** | Clean spend → Maintenance Spend. No payment-status/due-date field → overdue questions honestly refused, not faked. |
+| 3 | Family Court Case File (PDF) | ✅ **Built on** | Page-numbered, citable → Case File Q&A (Page-24 Final Judgment). |
+| 4 | Carter Story (PDF) | ✅ **Built on** | Corroborating narrative for the case file. |
+| 5 | `school data 2.csv` — enrollment | ❌ **Dropped** | `term_name` is 100% a Ruby error string; `status` holds gender values — columns are the **wrong data entirely**. |
+| 6 | `school data 4.csv` — payroll | ⚠️ **Deferred** | Pay-method/notes columns are 100% error strings; the headline fields are corrupt. |
+| 7 | `school data 6.csv` — payroll (alt) | ⚠️ **Deferred** | `pay_month` ranges 1–100; payment method is a random integer; can't reconcile with #6. |
+| 8 | `school data 5.csv` — invoice totals | ❌ **Dropped** | **All 788 rows are identical** (180/6/1080) — zero variance to analyze or cite. |
+| 9 | `school data .csv` — person list | ❌ **Out of scope** | Generic directory (incl. PII-shaped fields); no spec question touches it. |
 
-**Takeaway:** the data is realistically messy. The system **mines the usable signal, flags the defects, and refuses to fabricate** over the gaps — which is exactly the behavior that makes it trustworthy on your real, imperfect data.
+**That discipline *is* the product** — the system says *"I can't answer that from this data"* (the maintenance-overdue and contract-penalty cases) rather than fabricate, applied not just at answer time but at **data-intake time**.
+
+📄 **Full row-level evidence — [docs/product/data-quality-assessment.md](product/data-quality-assessment.md)** (every source, the exact defect, and what clean re-supply would un-block).
 
 ---
 
