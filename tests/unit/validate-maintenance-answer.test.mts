@@ -19,6 +19,16 @@ test("golden B: a real spend answer with cited rows", () => {
   assert.equal(validateNoFabrication(a).ok, true, validateNoFabrication(a).reasons.join("; "));
 });
 
+test("golden A-HE: Hebrew honest refusal passes (Hebrew negation markers recognised)", () => {
+  // The assistant answers a Hebrew overdue question in Hebrew. Its honest refusal is
+  // phrased in Hebrew ("אין … מידע/שדה", "לא ניתן") while the schema columns it names
+  // (paid/unpaid, suspension) are English — Rule 2b must NOT fire on this correct
+  // refusal. (Regression: an English-only HONEST_REFUSAL regex falsely flagged it.)
+  const a = `אין בנתונים מידע על לקוחות המאחרים בתשלומים או על תנאי השעיית שירות. טבלת התחזוקה מכילה עמודות בלבד: Ticket ID, Vendor, Invoice, Labor Cost, Parts Cost, Total Cost, Completion Date. אין בה שדה של סטטוס תשלום (paid/unpaid) או תנאי suspension. לכן לא ניתן לענות על השאלה. סך ההוצאה הכוללת על תחזוקה הוא $40,597.00 על פני 750 כרטיסים [S:maintenance#5].`;
+  const r = validateNoFabrication(a);
+  assert.equal(r.ok, true, r.reasons.join("; "));
+});
+
 // ── TOYS / fabrications MUST fail ───────────────────────────────────────────
 
 test("toy: fabricated overdue list (the catastrophic failure)", () => {

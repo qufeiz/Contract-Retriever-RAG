@@ -31,9 +31,24 @@ const FABRICATED_OVERDUE = [
   /suspension (terms?|policy)[^.]*\b\d+\s*days?\b/i,
 ];
 
-// Markers of an honest refusal (negating the concept's availability).
-const HONEST_REFUSAL =
-  /\b(no (payment[- ]status|due[- ]date|paid|overdue|suspension)|can'?t determine|cannot determine|no service[- ]agreement|not (a|an)? ?(field|column)|won'?t (guess|invent|fabricate)|not in (this|the) data|no .* field)\b/i;
+// Markers of an honest refusal (negating the concept's availability). Includes
+// HEBREW markers, because the assistant answers a Hebrew question in Hebrew and its
+// honest refusal ("there is no … field / cannot … / not available in the data") is
+// phrased in Hebrew — an English-only regex would falsely flag a correct Hebrew
+// refusal as raising the concept without negating it (Rule 2b).
+const HONEST_REFUSAL = new RegExp(
+  [
+    // English
+    "\\b(no (payment[- ]status|due[- ]date|paid|overdue|suspension)|can'?t determine|cannot determine|no service[- ]agreement|not (a|an)? ?(field|column)|won'?t (guess|invent|fabricate)|not in (this|the) data|no .* field|cannot be answered|cannot answer)\\b",
+    // Hebrew: "אין … מידע/שדה" (there is no info/field), "לא ניתן" (cannot),
+    // "אינו זמין"/"לא זמין" (not available), "אין … הסכם" (no agreement).
+    "אין (ב[^ ]* )?(מידע|שדה)",
+    "לא ניתן",
+    "איננו? זמין|לא זמין|אינו זמין",
+    "אין .{0,20}הסכם",
+  ].join("|"),
+  "i"
+);
 
 export function validateNoFabrication(answer: string): MaintenanceValidation {
   const reasons: string[] = [];
