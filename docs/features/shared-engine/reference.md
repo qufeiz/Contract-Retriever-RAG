@@ -4,6 +4,10 @@ Derived from: `../../architecture.md` + the running system (`lib/engine/*`, `app
 
 The **reference** (2am runbook + internals) for the infrastructure every feature is built on: ingestion → routing → hybrid retrieval → grounded generation → citation → `validateAnswer()`. This is shared infrastructure documented **once** here; each domain *feature* (contract-intelligence, receivables-intelligence, case-file-qa, …) builds its query surface on top and owns its own user-facing docs.
 
+The running engine — a document-routed, page-cited, validated answer (the Carter custody/support golden):
+
+![Engine answering a document-routed question with inline citations and a passing content-fidelity check](images/engine-court-answer.png)
+
 ## The request loop
 
 `POST /api/ask { question }` → `answerQuestion()` (`lib/engine/answer.ts`):
