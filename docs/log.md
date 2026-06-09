@@ -6,6 +6,9 @@ Types: incident · decision · feat · fix · reorg.
 
 ---
 
+## [2026-06-09] feat | Production-grade UI redesign ("Aletheia") + Hebrew figure fix
+Redesigned the frontend with the frontend-design skill after researching Perplexity/Glean citation-forward patterns: an "editorial archive" aesthetic (warm paper-and-ink, Fraunces/Newsreader/JetBrains Mono, one teal accent — not AI-gray), color-coded per-feature entry cards, routing-transparency flow, **clickable inline citation chips that scroll to + highlight the exact source row/page**, readable source rows, all loading/empty/error/no-source states, RTL for Hebrew, responsive. All data-testids preserved → 13/13 journey tests still pass. Fixed a real reliability gap: Hebrew answers occasionally omitted the exact aggregate ($18.9M / $40,597) — made verified figures + the refusal pivot mandatory verbatim in every language (now contract-HE 5/5, maintenance-HE 4/4). Re-captured all 12 golden screenshots. Polished CLIENT-DELIVERABLE.md into a landing (hero + CTA + at-a-glance table). Product named **Aletheia** (truth/disclosure).
+
 ## [2026-06-09] feat | All 3 domain features shipped + client deliverable assembled
 contract-intelligence (38 expiring/$18.9M/honest-no-penalties/leak-guard), case-file-qa (Page-24 $1,285/corroboration/conflict-surfacing), maintenance-spend-intelligence ($40,597 spend/honest-refusal). Each has its own 04/user-guide/README ledger + golden screenshots + per-feature content-fidelity gate + journey gates (13 total, green vs live). Assembled the single client-facing doc `CLIENT-DELIVERABLE.md` (pitch + Mermaid diagram + 3 capabilities + Data Quality Assessment of all 9 sources). 40 unit tests green.
 
