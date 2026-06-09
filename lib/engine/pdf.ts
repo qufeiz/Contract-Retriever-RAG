@@ -3,8 +3,23 @@
 // prebuilt JSON. Each chunk keeps its source doc + page number (the [P:doc#page]
 // citation anchor).
 import { execFileSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 export type PdfChunk = { doc: string; page: number; text: string };
+
+// Committed pre-extracted page text (so the deploy build doesn't need poppler).
+// Produced by scripts/extract-pdf-text.mts on a machine that has pdftotext.
+const PAGES_CACHE = join(process.cwd(), "data", "pdf-pages.json");
+function cachedPages(doc: string): string[] | null {
+  if (!existsSync(PAGES_CACHE)) return null;
+  try {
+    const all = JSON.parse(readFileSync(PAGES_CACHE, "utf8")) as Record<string, string[]>;
+    return all[doc] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** Extract text per page using pdftotext's form-feed page separators. */
 export function extractPages(pdfPath: string): string[] {
@@ -35,9 +50,11 @@ function chunkPage(text: string, chunkChars = 900, overlap = 150): string[] {
   return chunks;
 }
 
-/** Turn a PDF into citable chunks (doc + page + text). */
+/** Turn a PDF into citable chunks (doc + page + text). Prefers committed page
+ *  text (data/pdf-pages.json) so a poppler-less build still works; falls back to
+ *  pdftotext when the cache is absent. */
 export function pdfToChunks(pdfPath: string, doc: string): PdfChunk[] {
-  const pages = extractPages(pdfPath);
+  const pages = cachedPages(doc) ?? extractPages(pdfPath);
   const chunks: PdfChunk[] = [];
   pages.forEach((pageText, idx) => {
     const page = idx + 1;
