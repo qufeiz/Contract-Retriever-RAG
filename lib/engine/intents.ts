@@ -47,11 +47,15 @@ export const INTENTS: IntentDef[] = [
       const end = addDays(today, days);
       const rows = sqlSelect(
         "contracts",
+        // Stable tiebreak (vendor ASC, then id) so ties on End Date — e.g. the
+        // 4-way 2026-06-17 tie (Brainsphere, Fanoodle, Feedfish, Topicware) — order
+        // DETERMINISTICALLY. Without it the "earliest-expiring" list (and its golden
+        // screenshot) could reshuffle between runs.
         `SELECT id, contract_id, vendor, end_date, end_date_iso, annual_cost
          FROM contracts
          WHERE __malformed = 0 AND end_date_iso IS NOT NULL
            AND end_date_iso >= ? AND end_date_iso <= ?
-         ORDER BY end_date_iso ASC`,
+         ORDER BY end_date_iso ASC, vendor ASC, id ASC`,
         [today, end]
       );
       // Verifiable aggregate over the SAME filtered set (count + combined value).
@@ -80,7 +84,8 @@ export const INTENTS: IntentDef[] = [
       rows: sqlSelect(
         "contracts",
         `SELECT id, contract_id, vendor, start_date, end_date, annual_cost
-         FROM contracts WHERE vendor LIKE ? AND __malformed = 0 ORDER BY end_date_iso`,
+         FROM contracts WHERE vendor LIKE ? AND __malformed = 0
+         ORDER BY end_date_iso ASC, vendor ASC, id ASC`,
         [`%${params.vendor ?? ""}%`]
       ),
     }),

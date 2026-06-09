@@ -41,6 +41,25 @@ test("contracts have queryable ISO end dates (the 90-day golden = 38)", () => {
   db.close();
 });
 
+test("contracts expiry order is deterministic on the End-Date tie (stable tiebreak)", () => {
+  const { db } = buildDatabase(DATA);
+  // The 4-way tie on 2026-06-17 must order by vendor ASC so the golden
+  // "earliest-expiring" list + screenshot reproduce every run.
+  const tie = db
+    .prepare(
+      `SELECT vendor FROM contracts
+       WHERE __malformed = 0 AND end_date_iso = '2026-06-17'
+       ORDER BY end_date_iso ASC, vendor ASC, id ASC`
+    )
+    .all() as { vendor: string }[];
+  assert.deepEqual(
+    tie.map((r) => r.vendor),
+    ["Brainsphere", "Fanoodle", "Feedfish", "Topicware"],
+    "the 2026-06-17 tie must be vendor-sorted and stable"
+  );
+  db.close();
+});
+
 test("date + malformed helpers", () => {
   assert.equal(toISODate("5/9/2024"), "2024-05-09");
   assert.equal(toISODate("not a date"), null);
