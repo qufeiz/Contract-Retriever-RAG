@@ -106,6 +106,14 @@ function crossCheckClaims(answer: string, evidence: Evidence): string[] {
   for (const c of evidence.chunks) if (c.text != null) chunkByKey.set(`${c.doc}#${c.page}`, c.text);
 
   const aggregates = new Set((evidence.aggregates ?? []).map((n) => round2(n)));
+  // Every numeric value present across the retrieved rows of each table. A model
+  // listing a breakdown / sample rows sometimes pairs a REAL row value with a
+  // sibling row's citation (e.g. "$549.98 [S:maintenance#685]" where 549.98 is
+  // another retrieved row). The value is genuinely in the evidence set, so it is
+  // accepted against any citation of the SAME table. The cross-check's hard job is
+  // rejecting FABRICATED values — a number present in NO retrieved row of that table
+  // (e.g. "$999,999.00 [S:contracts#269]") still fails.
+  const valuesByTable = collectValuesByTable(evidence.rows);
   // Calendar years present ANYWHERE in the retrieved structured evidence. A bare
   // year (e.g. "2024") is a real value in the evidence set; the cross-check polices
   // fabricated VALUES (dollar amounts, counts), not which exact dated row a model
@@ -134,9 +142,10 @@ function crossCheckClaims(answer: string, evidence: Evidence): string[] {
       const data = rowById.get(`${name}#${idStr}`);
       if (!data) continue; // resolvability handled by rule 1; only cross-check what we hold
       if (isBareYear(claimText) && yearsInEvidence.has(claimText.trim())) continue;
-      if (!numberSupportedByRow(claimText, data, aggregates)) {
+      const tableValues = valuesByTable.get(name);
+      if (!numberSupportedByRow(claimText, data, aggregates, tableValues)) {
         reasons.push(
-          `claim "${claimText.trim()}" cited to ${token} is not supported by that row's data or any verified aggregate`
+          `claim "${claimText.trim()}" cited to ${token} is not supported by any retrieved ${name} row or verified aggregate`
         );
       }
     } else {
@@ -154,17 +163,21 @@ function crossCheckClaims(answer: string, evidence: Evidence): string[] {
   return reasons;
 }
 
-// A stated number is supported by a row if it numerically equals any numeric value
-// in that row, OR equals a verified server-side aggregate (totals/counts are not in
-// any single row but ARE ground truth). Percentages are treated as literal numbers.
+// A stated number is supported if it numerically equals any value in the cited row,
+// OR any value present across the retrieved rows of that table (a breakdown/sample
+// listing may pin a real value to a sibling row's token), OR a verified server-side
+// aggregate (totals/counts live in no single row but ARE ground truth). A value in
+// NONE of these — a fabrication — is rejected. Percentages are literal numbers.
 function numberSupportedByRow(
   claimText: string,
   data: Record<string, unknown>,
-  aggregates: Set<number>
+  aggregates: Set<number>,
+  tableValues?: Set<number>
 ): boolean {
   const claim = parseNumber(claimText);
   if (claim == null) return true; // unparseable → don't false-fail
   if (aggregates.has(round2(claim))) return true;
+  if (tableValues?.has(round2(claim))) return true; // any retrieved row of this table
   // The claim's bare digit string, for substring/component matching against a row's
   // string fields (a year inside a date, an id inside a label, etc.).
   const claimDigits = claimText.replace(/[$,%\s]/g, "");
@@ -183,6 +196,24 @@ function numberSupportedByRow(
     }
   }
   return false;
+}
+
+// Every numeric value present across the retrieved rows of each table, keyed by
+// table. Used to accept a real row value paired with a sibling row's citation.
+function collectValuesByTable(
+  rows: { table: string; data?: Record<string, unknown> }[]
+): Map<string, Set<number>> {
+  const byTable = new Map<string, Set<number>>();
+  for (const r of rows) {
+    if (!r.data) continue;
+    const set = byTable.get(r.table) ?? new Set<number>();
+    for (const v of Object.values(r.data)) {
+      const n = typeof v === "number" ? v : parseNumber(String(v));
+      if (n != null) set.add(round2(n));
+    }
+    byTable.set(r.table, set);
+  }
+  return byTable;
 }
 
 // A bare 4-digit calendar year (no currency/decimal), e.g. "2024".

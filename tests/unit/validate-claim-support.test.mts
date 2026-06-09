@@ -54,7 +54,7 @@ test("RED: $999,999.00 [S:contracts#269] — wrong value, citation resolves but 
   const a = `The Skalith contract is worth $999,999.00 ${sqlToken("contracts", 269)}.`;
   const r = validateAnswer(a, contractEvidence);
   assert.equal(r.ok, false, "must be rejected — the row does not hold $999,999.00");
-  assert.match(r.reasons.join(" "), /not supported by that row/i);
+  assert.match(r.reasons.join(" "), /not supported by/i);
 });
 
 test("RED: $5,000 [P:family-court#24] — wrong value, the page says $1,285", () => {
@@ -136,5 +136,35 @@ test("RED: a maintenance figure that is neither the row value nor an aggregate i
   const a = `Total maintenance spend is $88,888.00 ${sqlToken("maintenance", 5)}.`;
   const r = validateAnswer(a, maintenanceEvidence);
   assert.equal(r.ok, false);
-  assert.match(r.reasons.join(" "), /not supported by that row/i);
+  assert.match(r.reasons.join(" "), /not supported by/i);
+});
+
+test("GREEN: a real value paired with a SIBLING row's citation passes (breakdown listing)", () => {
+  // A breakdown sometimes pins a real retrieved value to a sibling row's token.
+  // $499.98 is row #685's value; cited beside #5 it is still genuine evidence.
+  const ev: Evidence = {
+    rows: [
+      { table: "maintenance", id: 5, data: { id: 5, vendor: "Oyoba", total_cost: 549.98 } },
+      { table: "maintenance", id: 685, data: { id: 685, vendor: "Zoovu", total_cost: 499.98 } },
+    ],
+    chunks: [],
+    aggregates: [40597],
+  };
+  const a = `Sample: $499.98 ${sqlToken("maintenance", 5)}.`;
+  assert.equal(validateAnswer(a, ev).ok, true, validateAnswer(a, ev).reasons.join("; "));
+});
+
+test("RED: a value in NO retrieved row of the table is still rejected (real fabrication)", () => {
+  const ev: Evidence = {
+    rows: [
+      { table: "maintenance", id: 5, data: { id: 5, vendor: "Oyoba", total_cost: 549.98 } },
+      { table: "maintenance", id: 685, data: { id: 685, vendor: "Zoovu", total_cost: 499.98 } },
+    ],
+    chunks: [],
+    aggregates: [40597],
+  };
+  const a = `Sample: $123,456.78 ${sqlToken("maintenance", 5)}.`;
+  const r = validateAnswer(a, ev);
+  assert.equal(r.ok, false);
+  assert.match(r.reasons.join(" "), /not supported by/i);
 });
