@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 type AnswerResult = {
   question: string;
@@ -17,29 +17,44 @@ type AnswerResult = {
   validation: { ok: boolean; reasons: string[] };
 };
 
-const EXAMPLES = [
-  "What contracts expire in the next 90 days and what penalties are defined in those contracts?",
-  "What did the court decide about custody and child support for the Carters?",
-  "Why did the Carters get divorced?",
-  "Show maintenance invoices completed before 2025 that may be overdue.",
+// Per-feature entry points — color-coded so the surface reads as "many capabilities".
+const EXAMPLES: { feat: string; chip: string; q: string }[] = [
+  {
+    feat: "Contract Intelligence",
+    chip: "var(--sql)",
+    q: "What contracts expire in the next 90 days and what penalties are defined in those contracts?",
+  },
+  {
+    feat: "Case File Q&A",
+    chip: "var(--pdf)",
+    q: "What was the final child support amount, and who got primary residence in the Carter case?",
+  },
+  {
+    feat: "Case File Q&A",
+    chip: "var(--pdf)",
+    q: "When did Joni Carter file for divorce?",
+  },
+  {
+    feat: "Maintenance Spend",
+    chip: "var(--gold)",
+    q: "Which customers have overdue payments and what does the agreement say about service suspension?",
+  },
+  {
+    feat: "Maintenance Spend",
+    chip: "var(--gold)",
+    q: "How much did we spend on maintenance in 2026, and which vendors cost the most overall?",
+  },
+  {
+    feat: "Contract Intelligence · עברית",
+    chip: "var(--sql)",
+    q: "אילו חוזים יפוגו ב-90 הימים הקרובים ומהם הקנסות המוגדרים באותם חוזים?",
+  },
 ];
 
-// Render answer text, highlighting [S:table#id] / [P:doc#page] citation tokens.
-function renderAnswer(text: string) {
-  const parts = text.split(/(\[(?:S|P):[^\]#]+#\d+\])/g);
-  return parts.map((p, i) => {
-    const m = p.match(/^\[(S|P):/);
-    if (m) {
-      const cls = m[1] === "S" ? "cite sql" : "cite pdf";
-      return (
-        <span key={i} className={cls} title="Resolvable source — see Sources below">
-          {p}
-        </span>
-      );
-    }
-    return <span key={i}>{p}</span>;
-  });
-}
+const CITE_RE = /(\[(?:S|P):[^\]#]+#\d+\])/g;
+const isHebrew = (s: string) => /[֐-׿]/.test(s);
+
+const sourceLabel = (s: string) => (s === "structured" ? "Structured · SQL" : "Documents · RAG");
 
 export default function Home() {
   const [question, setQuestion] = useState("");
@@ -47,12 +62,15 @@ export default function Home() {
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAllRows, setShowAllRows] = useState(false);
+  const [activeCite, setActiveCite] = useState<string | null>(null);
+  const sourcesRef = useRef<HTMLDivElement>(null);
 
   async function ask(q: string) {
     setLoading(true);
     setError(null);
     setResult(null);
     setShowAllRows(false);
+    setActiveCite(null);
     try {
       const res = await fetch("/api/ask", {
         method: "POST",
@@ -69,17 +87,59 @@ export default function Home() {
     }
   }
 
+  // Click a citation chip → reveal all rows, highlight + scroll to the source.
+  function onCiteClick(token: string) {
+    setShowAllRows(true);
+    setActiveCite(token);
+  }
+  useEffect(() => {
+    if (!activeCite) return;
+    const el = document.getElementById(`src-${cssId(activeCite)}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeCite, showAllRows]);
+
+  function renderAnswer(text: string) {
+    return text.split(CITE_RE).map((p, i) => {
+      const m = p.match(/^\[(S|P):/);
+      if (m) {
+        const cls = m[1] === "S" ? "cite sql" : "cite pdf";
+        return (
+          <span
+            key={i}
+            className={`${cls}${activeCite === p ? " active" : ""}`}
+            title="Click to trace this claim to its source"
+            role="button"
+            tabIndex={0}
+            onClick={() => onCiteClick(p)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onCiteClick(p)}
+          >
+            {p}
+          </span>
+        );
+      }
+      return <span key={i}>{p}</span>;
+    });
+  }
+
   const rows = result?.evidence.rows ?? [];
+  const chunks = result?.evidence.chunks ?? [];
   const visibleRows = showAllRows ? rows : rows.slice(0, 5);
+  const answerRtl = result ? isHebrew(result.answer) : false;
 
   return (
     <div className="wrap">
-      <header>
-        <h1>AI Business Knowledge Assistant</h1>
-        <p className="sub">
-          Ask a free-form business question. It is <strong>routed</strong> to the relevant source(s),
-          answered with <strong>hybrid SQL + document retrieval</strong>, and returned with{" "}
-          <strong>inline citations</strong> you can trace. Not a PDF chatbot — every fact is grounded.
+      <header className="masthead">
+        <div className="brand-row">
+          <h1 className="wordmark">
+            Aletheia<span className="dot">.</span>
+          </h1>
+          <span className="kicker">Knowledge Assistant</span>
+        </div>
+        <p className="tagline">
+          Ask a business question in plain language. Aletheia <b>routes</b> it to the right source,
+          answers with <b>hybrid SQL + document retrieval</b>, and attaches a <b>citation to every
+          fact</b> you can trace to the exact row or page. Not a PDF chatbot — grounded, or it says
+          so.
         </p>
       </header>
 
@@ -90,10 +150,13 @@ export default function Home() {
           if (question.trim() && !loading) ask(question.trim());
         }}
       >
+        <span className="glyph" aria-hidden>
+          ❧
+        </span>
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="e.g. What contracts expire in the next 90 days?"
+          placeholder="Ask about contracts, the case file, or maintenance spend…"
           aria-label="Ask a question"
         />
         <button type="submit" disabled={loading || !question.trim()}>
@@ -101,31 +164,53 @@ export default function Home() {
         </button>
       </form>
 
-      <div className="examples">
-        {EXAMPLES.map((ex) => (
-          <button
-            key={ex}
-            onClick={() => {
-              setQuestion(ex);
-              ask(ex);
-            }}
-          >
-            {ex.length > 60 ? ex.slice(0, 57) + "…" : ex}
-          </button>
-        ))}
-      </div>
+      {!result && !loading && !error && (
+        <>
+          <p className="examples-label">Try a capability</p>
+          <div className="examples">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex.q}
+                className="example-card"
+                style={{ ["--chip" as string]: ex.chip }}
+                onClick={() => {
+                  setQuestion(ex.q);
+                  ask(ex.q);
+                }}
+              >
+                <span className="feat">{ex.feat}</span>
+                <span className="q" dir={isHebrew(ex.q) ? "rtl" : "ltr"}>
+                  {ex.q}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="empty-hint">
+            Every answer shows which source(s) it queried and a chip for each fact — click a chip to
+            jump to the source.
+          </p>
+        </>
+      )}
 
       {error && (
-        <div className="card">
-          <p className="error">Error: {error}</p>
+        <div className="card error-card">
+          <h2>Something went wrong</h2>
+          <p className="err">{error}</p>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Try again, or ask a different question.
+          </p>
         </div>
       )}
 
       {loading && (
         <div className="card">
-          <p className="muted">
-            <span className="spinner" /> Routing the question and retrieving evidence…
-          </p>
+          <div className="thinking">
+            <span className="spinner" />
+            <span>
+              Routing the question and retrieving evidence
+              <span className="steps"> · route → retrieve → ground → cite → verify</span>
+            </span>
+          </div>
         </div>
       )}
 
@@ -133,60 +218,136 @@ export default function Home() {
         <>
           <div className="card" data-testid="route-panel">
             <h2>Routing decision</h2>
-            <div className="route-badges">
-              {result.route.sources.map((s) => (
-                <span key={s} className={`badge ${s}`} data-testid={`source-${s}`}>
-                  {s === "structured" ? "Structured · SQL" : "Documents · RAG"}
+            <div className="route-flow">
+              <span className="route-arrow">question</span>
+              <span className="route-arrow">→</span>
+              {result.route.sources.map((s, i) => (
+                <span key={s} style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
+                  {i > 0 && <span className="route-arrow">+</span>}
+                  <span className={`badge ${s}`} data-testid={`source-${s}`}>
+                    {sourceLabel(s)}
+                  </span>
                 </span>
               ))}
             </div>
             <p className="rationale">{result.route.rationale}</p>
             {result.route.intents.length > 0 && (
               <p className="intent-list">
-                Structured intents: {result.route.intents.map((i) => i.name).join(", ")}
+                intents: {result.route.intents.map((i) => i.name).join(" · ")}
               </p>
             )}
           </div>
 
           <div className="card">
             <h2>Answer</h2>
-            <div className="answer" data-testid="answer">
+            <div
+              className="answer"
+              data-testid="answer"
+              dir={answerRtl ? "rtl" : "ltr"}
+              lang={answerRtl ? "he" : "en"}
+            >
               {renderAnswer(result.answer)}
             </div>
             <div
               className={`validation ${result.validation.ok ? "ok" : "bad"}`}
               data-testid="validation"
             >
-              {result.validation.ok
-                ? "✓ Grounded — every cited source resolves to retrieved evidence."
-                : "✗ Rejected by validateAnswer(): " + result.validation.reasons.join("; ")}
+              <span className="mk">{result.validation.ok ? "✓" : "✗"}</span>
+              <span>
+                {result.validation.ok
+                  ? "Grounded — every cited source resolves to retrieved evidence (validateAnswer passed)."
+                  : "Rejected by validateAnswer(): " + result.validation.reasons.join("; ")}
+              </span>
             </div>
           </div>
 
-          <div className="card" data-testid="sources-panel">
+          <div className="card" data-testid="sources-panel" ref={sourcesRef}>
             <h2>
-              Sources ({rows.length} rows · {result.evidence.chunks.length} document chunks)
+              Sources — {rows.length} row{rows.length === 1 ? "" : "s"} · {chunks.length} document
+              chunk{chunks.length === 1 ? "" : "s"}
             </h2>
+
+            {rows.length === 0 && chunks.length === 0 && (
+              <p className="muted" style={{ fontStyle: "italic" }}>
+                No sources were retrieved for this question — which is why the answer states what it
+                cannot determine rather than guessing.
+              </p>
+            )}
+
             {visibleRows.map((r) => (
-              <div className="evidence-row" key={r.token}>
+              <div
+                className={`evidence-row${activeCite === r.token ? " highlight" : ""}`}
+                key={r.token}
+                id={`src-${cssId(r.token)}`}
+              >
                 <span className="tok sql">{r.token}</span>
-                <span className="data">{JSON.stringify(r.data)}</span>
+                <div className="evidence-body">
+                  <div className="meta">{r.table} · row {r.id}</div>
+                  <span className="data">{prettyRow(r.data)}</span>
+                </div>
               </div>
             ))}
             {rows.length > 5 && (
               <button className="more" onClick={() => setShowAllRows((v) => !v)}>
-                {showAllRows ? "Show fewer" : `Show all ${rows.length} rows`}
+                {showAllRows ? "▴ Show fewer" : `▾ Show all ${rows.length} rows`}
               </button>
             )}
-            {result.evidence.chunks.map((c) => (
-              <div className="evidence-row" key={c.token}>
+
+            {chunks.map((c) => (
+              <div
+                className={`evidence-row${activeCite === c.token ? " highlight" : ""}`}
+                key={c.token}
+                id={`src-${cssId(c.token)}`}
+              >
                 <span className="tok pdf">{c.token}</span>
-                <span className="data">{c.text.slice(0, 220)}…</span>
+                <div className="evidence-body">
+                  <div className="meta">
+                    {c.doc} · page {c.page}
+                  </div>
+                  <span className="data" dir={isHebrew(c.text) ? "rtl" : "ltr"}>
+                    {c.text.slice(0, 240)}
+                    {c.text.length > 240 ? "…" : ""}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
+
+          <button
+            className="more"
+            style={{ marginTop: 18 }}
+            onClick={() => {
+              setResult(null);
+              setQuestion("");
+            }}
+          >
+            ← Ask another question
+          </button>
         </>
       )}
+
+      <footer className="foot">
+        <span>Aletheia · grounded knowledge assistant</span>
+        <span className="sep">·</span>
+        <a href="https://github.com/qufeiz/Contract-Retriever-RAG" target="_blank" rel="noreferrer">
+          source
+        </a>
+        <span className="sep">·</span>
+        <span>routing · hybrid SQL + RAG · cited &amp; verified</span>
+      </footer>
     </div>
   );
+}
+
+// Stable DOM id from a citation token (so chips can scroll to their source row).
+function cssId(token: string) {
+  return token.replace(/[^a-zA-Z0-9]+/g, "-");
+}
+
+// Render a SQL row as readable "key: value · key: value" instead of raw JSON.
+function prettyRow(data: Record<string, unknown>) {
+  return Object.entries(data)
+    .filter(([k]) => k !== "id" && !k.endsWith("_iso") && k !== "__malformed")
+    .map(([k, v]) => `${k}: ${v ?? "—"}`)
+    .join("  ·  ");
 }

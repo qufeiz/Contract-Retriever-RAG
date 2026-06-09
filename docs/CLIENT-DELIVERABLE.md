@@ -1,17 +1,31 @@
-# AI Business Knowledge Assistant — Client Deliverable
+<div align="center">
 
-**A working MVP that answers business questions by routing them to the right source(s), retrieving with a hybrid of SQL + RAG, and returning a grounded answer with inline citations you can trace.**
+# Aletheia
 
-This is **not** a PDF chatbot and **not** "upload PDFs into a vector database and do semantic search" — the approach you explicitly ruled out. It is a real **query-routing → hybrid-retrieval → grounded-generation → source-attribution** pipeline, built to extend to your future CRM / email / cloud-storage / case-management sources.
+### AI Business Knowledge Assistant
+
+*Ask a business question in plain language. It routes to the right source, answers with hybrid SQL + document retrieval, and attaches a citation to every fact — one you can trace to the exact database row or document page.*
+
+**[▶ Try the live demo](https://contract-retriever-rag.vercel.app)**  ·  **[View the source](https://github.com/qufeiz/Contract-Retriever-RAG)**
+
+`query routing` · `hybrid SQL + RAG` · `grounded generation` · `source attribution` · `English + Hebrew`
+
+</div>
 
 ---
 
-## Try it now
+> **This is not a PDF chatbot**, and not "upload PDFs into a vector database and do semantic search" — the approach you explicitly ruled out. It is a real **query-routing → hybrid-retrieval → grounded-generation → source-attribution** pipeline, built to extend to your future CRM / email / cloud-storage / case-management sources.
 
-- **Live demo:** https://contract-retriever-rag.vercel.app
-- **Source code (public):** https://github.com/qufeiz/Contract-Retriever-RAG
+### At a glance
 
-Ask any of the example questions in the demo, or type your own. Every answer shows **which source(s) it routed to** and **a citation for every fact**.
+| | |
+|---|---|
+| **What it does** | Routes each question to the relevant source(s), retrieves with SQL + RAG, returns a cited answer |
+| **The differentiator** | Honest grounding — every claim cites a resolvable source, or it says the data doesn't have it |
+| **Capabilities** | Contract Intelligence · Case File Q&A · Maintenance Spend Intelligence |
+| **Languages** | English + Hebrew (live today) |
+| **Stack** | Next.js · DeepSeek · local multilingual embeddings · bundled SQLite + vector index · Vercel |
+| **Quality floor** | 40 unit + 13 journey tests (run against the live deploy) · CI-enforced |
 
 ---
 

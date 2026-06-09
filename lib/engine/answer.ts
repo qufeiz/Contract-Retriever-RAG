@@ -124,7 +124,8 @@ function buildSchemaContext(route: RoutePlan): string {
     `SCHEMA of the maintenance table (school data 3.csv) — these are the COMPLETE set of columns: ${cols}.`,
     `This data has NO payment-status, paid/unpaid, due-date, or service-suspension field, and there is NO service-agreement document.`,
     `The vendors are maintenance providers the school PAYS — they are NOT customers who owe money.`,
-    `If the question asks about overdue payments, who owes us, paid/unpaid status, or service-suspension terms: you CANNOT answer it from this data. Say so honestly, naming the existing columns in PROSE as the evidence of the absent field (do NOT write a "[SCHEMA]" tag — describe the columns in words), do NOT invent an overdue list or relabel vendors as debtors, and then offer the spend analysis the data CAN do (e.g. "total maintenance spend is $40,597.00 across 750 tickets; I can break it down by vendor or year").`,
+    `If the question asks about overdue payments, who owes us, paid/unpaid status, or service-suspension terms: you CANNOT answer it from this data. Say so honestly, naming the existing columns in PROSE as the evidence of the absent field (do NOT write a "[SCHEMA]" tag — describe the columns in words), and do NOT invent an overdue list or relabel vendors as debtors.`,
+    `MANDATORY: end EVERY such refusal by pivoting to the real analysis — you MUST state the exact figure "total maintenance spend is $40,597.00 across 750 tickets" (keep the $40,597.00 figure verbatim, even when answering in Hebrew or another language) and offer to break it down by vendor or year. A refusal that omits this pivot figure is incomplete.`,
   ].join(" ");
 }
 
@@ -200,7 +201,7 @@ async function generateGrounded(
   const user = `Today's date is ${today}. Any date filtering in the structured evidence (e.g. "next 90 days") was already computed relative to today, so the rows below are the answer set — do not say the date is unknown.
 
 Question: ${question}
-${schemaContext ? `\nSCHEMA EVIDENCE (use this to honestly refuse questions about fields the data lacks, citing the columns that exist):\n${schemaContext}\n` : ""}${aggLines ? `\nVERIFIED AGGREGATES (state these exact figures — they are computed over the full filtered set, not just the sample rows shown):\n${aggLines}\n` : ""}
+${schemaContext ? `\nSCHEMA EVIDENCE (use this to honestly refuse questions about fields the data lacks, citing the columns that exist):\n${schemaContext}\n` : ""}${aggLines ? `\nVERIFIED AGGREGATES — you MUST state EACH of these exact figures VERBATIM in your answer (the count and the dollar total), keeping the digits and currency formatting exactly as written even when you answer in Hebrew or another language. They are computed over the full filtered set, not just the sample rows shown:\n${aggLines}\n` : ""}
 STRUCTURED EVIDENCE (SQLite rows):
 ${structuredEvidence}
 
