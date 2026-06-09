@@ -10,6 +10,7 @@ import { sqlToken, pdfToken } from "./citations.ts";
 import { validateAnswer, type Evidence } from "./validate-answer.ts";
 import { validateContractAnswer } from "./validate-contract-answer.ts";
 import { validateCaseAnswer } from "./validate-case-answer.ts";
+import { validateNoFabrication } from "./validate-maintenance-answer.ts";
 import { DOCUMENTS } from "./documents.ts";
 
 export type AnswerResult = {
@@ -68,8 +69,13 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
     chunks: evChunks.map((c) => ({ doc: c.doc, page: c.page })),
   };
 
+  // For the maintenance domain, give generation the table's schema so it can
+  // HONESTLY refuse overdue/paid/suspension/customer-debt questions by citing the
+  // columns that DO exist as evidence of the absent concept (not fabricate one).
+  const schemaContext = buildSchemaContext(route);
+
   // 4. GROUNDED GENERATION
-  const answer = await generateGrounded(question, evRows, evChunks, summaries, TODAY);
+  const answer = await generateGrounded(question, evRows, evChunks, summaries, schemaContext, TODAY);
 
   // 5. VALIDATE — generic content-fidelity + the per-feature gate (contracts).
   const validation = validateAnswer(answer, evidence);
@@ -86,6 +92,11 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
     const cv = validateCaseAnswer(answer);
     reasons.push(...cv.reasons);
   }
+  const isMaintenanceTurn = route.intents.some((i) => i.name === "maintenance_spend");
+  if (isMaintenanceTurn) {
+    const mv = validateNoFabrication(answer);
+    reasons.push(...mv.reasons);
+  }
 
   return {
     question,
@@ -101,6 +112,20 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
 
 function docLabel(doc: string): string {
   return DOCUMENTS.find((d) => d.doc === doc)?.label ?? doc;
+}
+
+// Schema evidence for the honest-refusal path. When a maintenance question asks
+// for a concept the data lacks (overdue/paid/due/suspension/who-owes), the answer
+// must cite the EXISTING column set to prove the absence and refuse — not invent.
+function buildSchemaContext(route: RoutePlan): string {
+  if (!route.intents.some((i) => i.name === "maintenance_spend")) return "";
+  const cols = "Ticket ID (a category label), Vendor, Invoice, Labor Cost, Parts Cost, Total Cost, Completion Date";
+  return [
+    `SCHEMA of the maintenance table (school data 3.csv) — these are the COMPLETE set of columns: ${cols}.`,
+    `This data has NO payment-status, paid/unpaid, due-date, or service-suspension field, and there is NO service-agreement document.`,
+    `The vendors are maintenance providers the school PAYS — they are NOT customers who owe money.`,
+    `If the question asks about overdue payments, who owes us, paid/unpaid status, or service-suspension terms: you CANNOT answer it from this data. Say so honestly, naming the existing columns in PROSE as the evidence of the absent field (do NOT write a "[SCHEMA]" tag — describe the columns in words), do NOT invent an overdue list or relabel vendors as debtors, and then offer the spend analysis the data CAN do (e.g. "total maintenance spend is $40,597.00 across 750 tickets; I can break it down by vendor or year").`,
+  ].join(" ");
 }
 
 // Keep the top chunks but guarantee each represented document gets at least a
@@ -129,6 +154,7 @@ async function generateGrounded(
   rows: { token: string; table: string; data: Record<string, unknown> }[],
   chunks: { token: string; doc: string; page: number; text: string }[],
   summaries: IntentSummary[],
+  schemaContext: string,
   today: string
 ): Promise<string> {
   const aggLines =
@@ -142,7 +168,8 @@ async function generateGrounded(
                   currency: "USD",
                 })}`
               : "";
-            return `- ${s.label}: count = ${s.count}${t} (verified SQL aggregate over the cited rows)`;
+            const note = s.note ? ` ${s.note}` : "";
+            return `- ${s.label}: count = ${s.count}${t} (verified SQL aggregate over the cited rows).${note}`;
           })
           .join("\n");
   const structuredEvidence =
@@ -173,7 +200,7 @@ async function generateGrounded(
   const user = `Today's date is ${today}. Any date filtering in the structured evidence (e.g. "next 90 days") was already computed relative to today, so the rows below are the answer set — do not say the date is unknown.
 
 Question: ${question}
-${aggLines ? `\nVERIFIED AGGREGATES (state these exact figures — they are computed over the full filtered set, not just the sample rows shown):\n${aggLines}\n` : ""}
+${schemaContext ? `\nSCHEMA EVIDENCE (use this to honestly refuse questions about fields the data lacks, citing the columns that exist):\n${schemaContext}\n` : ""}${aggLines ? `\nVERIFIED AGGREGATES (state these exact figures — they are computed over the full filtered set, not just the sample rows shown):\n${aggLines}\n` : ""}
 STRUCTURED EVIDENCE (SQLite rows):
 ${structuredEvidence}
 

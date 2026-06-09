@@ -9,7 +9,7 @@ import { sqlSelect, getDb, type SqlRow } from "./retrieval.ts";
 export type IntentName =
   | "contracts_expiring"
   | "contracts_by_vendor"
-  | "overdue_or_recent_invoices"
+  | "maintenance_spend"
   | "invoice_totals"
   | "payroll_summary"
   | "enrollment_overview";
@@ -17,7 +17,16 @@ export type IntentName =
 // An intent returns its rows plus an optional aggregate SUMMARY (count + a named
 // total) that the grounding layer surfaces so the answer can state a verifiable
 // figure like "38 contracts … combined annual value $18,924,883.79".
-export type IntentSummary = { label: string; count: number; total?: { name: string; value: number } };
+export type IntentSummary = {
+  label: string;
+  count: number;
+  total?: { name: string; value: number };
+  note?: string; // extra verified facts (e.g. top-vendor breakdown, a year subtotal)
+};
+
+function fmt(n: number): string {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
 export type IntentResult = { rows: SqlRow[]; summary?: IntentSummary };
 
 export type IntentDef = {
@@ -77,32 +86,62 @@ export const INTENTS: IntentDef[] = [
     }),
   },
   {
-    name: "overdue_or_recent_invoices",
-    feature: "receivables-intelligence",
+    name: "maintenance_spend",
+    feature: "maintenance-spend-intelligence",
     description:
-      "Maintenance invoices, optionally filtered to those completed before a cutoff date (param: before, ISO) to surface aging/overdue items. Returns ticket, vendor, total cost, completion date.",
-    run: (params, today) => {
-      const before = params.before ?? today;
-      const rows = sqlSelect(
-        "maintenance_invoices",
-        `SELECT id, ticket_id, vendor, total_cost, completion_date, completion_date_iso
-         FROM maintenance_invoices
-         WHERE __malformed = 0 AND completion_date_iso IS NOT NULL AND completion_date_iso < ?
-         ORDER BY completion_date_iso ASC LIMIT 50`,
-        [before]
-      );
-      const agg = getDb()
+      "Maintenance SPEND analysis over the maintenance table (Vendor, Total Cost, Completion Date). Aggregates total spend, spend by year (param: year), and top vendors by spend — every figure cited to its rows. Use for 'how much did we spend on maintenance', 'top vendors by cost', spend by year. NOTE: this data has NO payment-status / due-date / paid field and the vendors are providers we PAY (not customers who owe) — it CANNOT answer overdue-payment, who-owes-us, or service-suspension questions.",
+    run: (params) => {
+      const year = params.year ? String(params.year) : null;
+      // Representative rows for the cited breakdown + drill-to-detail.
+      const rows = year
+        ? sqlSelect(
+            "maintenance",
+            `SELECT id, ticket_id, vendor, total_cost, completion_date
+             FROM maintenance WHERE __malformed = 0 AND completion_date_iso LIKE ?
+             ORDER BY total_cost DESC LIMIT 15`,
+            [`${year}%`]
+          )
+        : sqlSelect(
+            "maintenance",
+            `SELECT id, ticket_id, vendor, total_cost, completion_date
+             FROM maintenance WHERE __malformed = 0 ORDER BY total_cost DESC LIMIT 15`
+          );
+      const db = getDb();
+      const grand = db
+        .prepare(`SELECT COUNT(*) n, ROUND(SUM(total_cost),2) total FROM maintenance WHERE __malformed = 0`)
+        .get() as { n: number; total: number };
+      const topVendors = db
         .prepare(
-          `SELECT COUNT(*) n, ROUND(SUM(total_cost), 2) total FROM maintenance_invoices
-           WHERE __malformed = 0 AND completion_date_iso IS NOT NULL AND completion_date_iso < ?`
+          `SELECT vendor, ROUND(SUM(total_cost),2) spend, COUNT(*) tickets
+           FROM maintenance WHERE __malformed = 0 GROUP BY vendor ORDER BY spend DESC LIMIT 5`
         )
-        .get(before) as { n: number; total: number };
+        .all() as { vendor: string; spend: number; tickets: number }[];
+      const yearAgg = year
+        ? (db
+            .prepare(
+              `SELECT COUNT(*) n, ROUND(SUM(total_cost),2) total FROM maintenance
+               WHERE __malformed = 0 AND completion_date_iso LIKE ?`
+            )
+            .get(`${year}%`) as { n: number; total: number })
+        : null;
+      const extra = [
+        year && yearAgg
+          ? `Spend in ${year}: ${fmt(yearAgg.total ?? 0)} across ${yearAgg.n} tickets.`
+          : "",
+        `Top vendors by total spend (all years): ${topVendors
+          .map((v) => `${v.vendor} ${fmt(v.spend)} (${v.tickets} tickets)`)
+          .join(", ")}.`,
+        `ALWAYS also state the all-time grand total: ${fmt(grand.total ?? 0)} across ${grand.n} tickets — include it even when the question scopes to one year.`,
+      ]
+        .filter(Boolean)
+        .join(" ");
       return {
         rows,
         summary: {
-          label: `maintenance invoices completed before ${before}`,
-          count: agg.n,
-          total: { name: "total maintenance spend", value: agg.total ?? 0 },
+          label: "all-time total maintenance spend (state this grand total in every spend answer)",
+          count: grand.n,
+          total: { name: "all-time total maintenance spend", value: grand.total ?? 0 },
+          note: extra,
         },
       };
     },

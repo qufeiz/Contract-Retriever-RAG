@@ -31,7 +31,7 @@ export const TABLES: TableSpec[] = [
     dateColumns: ["start_date", "end_date"],
   },
   {
-    table: "maintenance_invoices",
+    table: "maintenance",
     csv: "school data 3.csv",
     label: "Maintenance invoices",
     columns: [

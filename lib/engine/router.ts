@@ -28,8 +28,10 @@ ${docCatalog}
 
 Rules:
 - The structured (school operations) and document (Carter family-court case) domains are UNRELATED. Never assume a join between them.
-- Pick "structured", "documents", or BOTH when a question spans them (e.g. list data AND summarize what a document says).
-- For each structured intent, supply params it needs (e.g. {"days": 90}, {"vendor": "Acme"}, {"department": "Sales"}). Omit params you don't have.
+- The ONLY documents are the Carter family-court case file + story. They are about a DIVORCE CASE — NOT business agreements, contracts, invoices, payments, or service terms. NEVER route a business/operations question (payments, invoices, overdue, vendors, contracts, service agreements, suspension terms) to the documents — there is no business agreement document in this system.
+- A question about overdue payments, who owes us, unpaid/paid invoices, customers in arrears, or service-suspension terms is a BUSINESS-OPERATIONS question about the maintenance/invoice data → route to "structured" with the "maintenance_spend" intent (which will honestly explain the data has no such field). Do NOT route it to the documents looking for an "agreement".
+- Pick "structured", "documents", or BOTH when a question genuinely spans them (e.g. list business data AND summarize the Carter case). A pure business question is "structured" only; a pure Carter-case question is "documents" only.
+- For each structured intent, supply params it needs (e.g. {"days": 90}, {"vendor": "Acme"}, {"year": 2026}, {"department": "Sales"}). Omit params you don't have.
 - If documents are relevant to one specific case file, set docFilter to its id; otherwise null.
 
 Respond with ONLY JSON: {"sources": [...], "intents": [{"name": "...", "params": {...}}], "docFilter": null, "rationale": "one short sentence"}.`;
